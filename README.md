@@ -67,7 +67,7 @@ can be combined with an external language model.
 ## 2. System architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph OFFLINE["Offline: data and training"]
         A["Kaggle CSV<br/>Response column"] --> B["Clean text"]
         B --> C["Strip punctuation<br/>keep it as labels"]
