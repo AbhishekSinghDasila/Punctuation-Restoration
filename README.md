@@ -1,6 +1,6 @@
 # Punctuation Restoration for Mental-Health Counselling Text
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/__REPO__/blob/main/notebooks/Punctuation_Restoration.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AbhishekSinghDasila/Punctuation-Restoration/blob/main/notebooks/Punctuation_Restoration.ipynb)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.x-ee4c2c)
 ![Transformers](https://img.shields.io/badge/🤗%20Transformers-4.46-yellow)
@@ -328,8 +328,8 @@ figure (well under an hour on a T4).
 
 ### Option B – local
 ```bash
-git clone https://github.com/__REPO__.git
-cd __REPONAME__
+git clone https://github.com/AbhishekSinghDasila/Punctuation-Restoration.git
+cd Punctuation-Restoration
 python -m venv venv
 venv\Scripts\activate            # Windows   (Linux/macOS: source venv/bin/activate)
 pip install -r requirements.txt
