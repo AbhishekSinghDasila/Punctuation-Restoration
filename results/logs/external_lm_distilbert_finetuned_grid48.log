@@ -1,0 +1,19 @@
+  LM step 50/592 loss 3.851
+  LM step 100/592 loss 3.697
+  LM step 150/592 loss 3.644
+  LM step 200/592 loss 3.581
+  LM step 250/592 loss 3.590
+  LM step 300/592 loss 3.571
+  LM step 350/592 loss 3.486
+  LM step 400/592 loss 3.446
+  LM step 450/592 loss 3.466
+  LM step 500/592 loss 3.461
+  LM step 550/592 loss 3.448
+perplexity on val (generic LM): 44.39
+perplexity on val (domain LM): 29.90
+tagger alone: val micro-F1 0.6634  test 0.6720
+[generic] n-best + LM scoring: 851s
+[generic] best on val: lambda=1.0 beta=1.5 val F1 0.7018 -> test micro-F1 0.7050  QUESTION 0.723
+[domain] n-best + LM scoring: 848s
+[domain] best on val: lambda=1.0 beta=2.0 val F1 0.7088 -> test micro-F1 0.7163  QUESTION 0.760
+done

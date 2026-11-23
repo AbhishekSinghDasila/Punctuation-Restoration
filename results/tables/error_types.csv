@@ -1,0 +1,10 @@
+model,insertions,deletions,substitutions
+XLM-R base FT + GPT-2 rescoring (domain),382,392,277
+XLM-R base FT + GPT-2 rescoring (generic),405,394,295
+DistilBERT FT + GPT-2 rescoring (domain),434,549,349
+DistilBERT FT + GPT-2 rescoring (generic),375,640,373
+DistilBERT + domain FT,442,694,410
+XLM-R base punct. model + domain FT,342,476,291
+XLM-R large FullStop (zero-shot),500,421,314
+XLM-R base punct. model (zero-shot),581,466,326
+Rule: period at end only,0,3191,6

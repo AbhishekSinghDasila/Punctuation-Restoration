@@ -1,0 +1,17 @@
+== punctall_finetuned: kredor/punctuate-all  train=True  device=cpu
+native labels: {0: '0', 1: '.', 2: ',', 3: '?', 4: '-', 5: ':'}  ->  fold [0, 2, 1, 3, 1, 1]
+parameters: 277.5 M
+  step 50/556  loss 0.2019  7.10s/step
+  step 100/556  loss 0.1333  7.22s/step
+  step 150/556  loss 0.1233  7.14s/step
+  step 200/556  loss 0.1156  7.09s/step
+  step 250/556  loss 0.1146  7.09s/step
+  step 300/556  loss 0.1170  7.07s/step
+  step 350/556  loss 0.1212  7.07s/step
+  step 400/556  loss 0.1117  7.07s/step
+  step 450/556  loss 0.1124  7.07s/step
+  step 500/556  loss 0.1133  7.06s/step
+  step 550/556  loss 0.1137  7.06s/step
+val: micro-F1 0.7691  COMMA 0.682  PERIOD 0.824  QUESTION 0.853  SER 0.362  (69s)
+test: micro-F1 0.7659  COMMA 0.666  PERIOD 0.835  QUESTION 0.854  SER 0.363  (63s)
+done

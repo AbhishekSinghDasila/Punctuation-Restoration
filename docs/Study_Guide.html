@@ -1,0 +1,889 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punctuation Restoration Study Guide</title>
+<style>
+:root{--ink:#1d2430;--muted:#5b6675;--line:#d9dee5;--bg:#ffffff;--panel:#f5f7fa;--blue:#2a6fdb;--teal:#1b998b;--red:#e4572e;--amber:#f4a259;--grey:#9aa5b1;--code:#f0f2f5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.62 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+main{max-width:980px;margin:0 auto;padding:28px 18px 80px}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}
+h2{font-size:23px;margin:46px 0 10px;padding-top:12px;border-top:2px solid var(--line)}
+h3{font-size:18px;margin:26px 0 6px}
+h4{font-size:15.5px;margin:18px 0 4px}
+p{margin:8px 0}
+.sub{color:var(--muted);margin:0 0 18px}
+code,kbd{background:var(--code);padding:1px 5px;border-radius:4px;font:13.5px/1.4 Consolas,"Cascadia Mono",monospace}
+pre{background:var(--code);padding:12px 14px;border-radius:8px;overflow-x:auto;font:13px/1.5 Consolas,"Cascadia Mono",monospace}
+table{border-collapse:collapse;width:100%;margin:10px 0 14px;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--panel)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.best td{background:#e8f6f3;font-weight:600}
+.box{background:var(--panel);border-left:4px solid var(--blue);padding:10px 14px;border-radius:6px;margin:12px 0}
+.box.simple{border-color:var(--teal)}
+.box.warn{border-color:var(--red)}
+.box.q{border-color:var(--amber)}
+.box b.t{display:block;margin-bottom:2px}
+figure{margin:16px 0;text-align:center}
+figure img{max-width:100%;border:1px solid var(--line);border-radius:6px}
+figcaption{color:var(--muted);font-size:13.5px;margin-top:4px}
+svg{max-width:100%;height:auto}
+svg{font-family:"Segoe UI",Arial,sans-serif}
+.toc{columns:2;column-gap:30px;background:var(--panel);padding:12px 18px 12px 34px;border-radius:8px}
+.toc li{margin:2px 0}
+.tag{display:inline-block;padding:0 7px;border-radius:10px;font-size:12.5px;font-weight:600;color:#fff}
+.tO{background:var(--grey)}.tC{background:var(--blue)}.tP{background:var(--teal)}.tQ{background:var(--red)}
+.qa dt{font-weight:650;margin-top:12px}
+.qa dd{margin:4px 0 0 0;padding-left:14px;border-left:3px solid var(--line)}
+@media (max-width:700px){.toc{columns:1}h1{font-size:25px}}
+@media print{h2{page-break-before:auto}figure,svg,table,.box{page-break-inside:avoid}main{max-width:none}}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Punctuation Restoration for Mental-Health Counselling Text</h1>
+<p class="sub">Augnito · AI Researcher assignment · complete study guide (simple explanations, architecture diagrams, results, interview prep)</p>
+
+<ol class="toc">
+<li><a href="#s1">The problem in plain words</a></li>
+<li><a href="#s2">The whole system on one page</a></li>
+<li><a href="#s3">The dataset and what it looks like</a></li>
+<li><a href="#s4">Creating the synthetic dataset</a></li>
+<li><a href="#s5">Pre-processing details</a></li>
+<li><a href="#s6">Exploratory data analysis (EDA)</a></li>
+<li><a href="#s7">Background: transformers in 5 minutes</a></li>
+<li><a href="#s8">Model 1 – the tagger (internal LM)</a></li>
+<li><a href="#s9">Pre-trained baselines (zero-shot)</a></li>
+<li><a href="#s10">Fine-tuning on the domain</a></li>
+<li><a href="#s11">Model 2 – GPT-2 rescoring (external LM)</a></li>
+<li><a href="#s12">How we measure quality</a></li>
+<li><a href="#s13">Results</a></li>
+<li><a href="#s14">Test-result analysis (EDA on predictions)</a></li>
+<li><a href="#s15">Challenges and how they were solved</a></li>
+<li><a href="#s16">Why each choice was made</a></li>
+<li><a href="#s17">Limitations and future work</a></li>
+<li><a href="#s18">Code map and how to run</a></li>
+<li><a href="#s19">Interview questions and answers</a></li>
+<li><a href="#s20">Glossary</a></li>
+</ol>
+
+<!-- ================================================================ 1 -->
+<h2 id="s1">1. The problem in plain words</h2>
+<p>A speech-recognition (ASR) system like Augnito's turns a doctor's voice into words. Speech has no visible
+punctuation, so the raw output looks like this:</p>
+<pre>it sounds like a tough time and its normal to feel down have you talked to anyone about it</pre>
+<p><b>Punctuation restoration</b> puts the marks back so a human can read it and downstream NLP (sentence
+splitting, entity extraction, report structuring) works properly:</p>
+<pre>it sounds like a tough time, and its normal to feel down. have you talked to anyone about it?</pre>
+
+<div class="box simple"><b class="t">The key trick that makes this a "normal" ML problem</b>
+Instead of "generating" text, we give <b>every word one label</b> = the mark that comes right after it.
+The text never changes – we only decide what to put in each gap between words. This is called
+<b>sequence labelling</b> or <b>token classification</b> (the same family of problems as named-entity recognition).</div>
+
+<p>Labels used (4 classes):</p>
+<table>
+<tr><th>label</th><th>meaning</th><th>characters folded into it</th></tr>
+<tr><td><span class="tag tO">O</span></td><td>no punctuation after this word</td><td>–</td></tr>
+<tr><td><span class="tag tC">COMMA</span></td><td>a short pause inside a sentence</td><td><code>,</code> <code>;</code> <code>:</code> <code>-</code> (dash)</td></tr>
+<tr><td><span class="tag tP">PERIOD</span></td><td>end of a statement</td><td><code>.</code> <code>!</code></td></tr>
+<tr><td><span class="tag tQ">QUESTION</span></td><td>end of a question</td><td><code>?</code></td></tr>
+</table>
+<p>This 4-class scheme is the standard one used in the punctuation-restoration literature (e.g. the IWSLT
+benchmark), which makes the results comparable to published work. <code>!</code> is folded into PERIOD because it
+is rare (972 in the whole raw data) and both end a sentence; <code>; : -</code> are folded into COMMA because they are
+all sentence-internal pauses.</p>
+
+<!-- ================================================================ 2 -->
+<h2 id="s2">2. The whole system on one page</h2>
+<p>The figure shows both phases. <b>Top:</b> how the data and models are built (offline).
+<b>Bottom:</b> what happens to one input at prediction time. The two language models the assignment asks
+for are highlighted: the <b>internal LM</b> lives <i>inside</i> the tagger (its pre-trained transformer encoder);
+the <b>external LM</b> is a separate GPT-2 that re-ranks the tagger's candidate outputs.</p>
+
+<figure>
+<svg viewBox="0 0 960 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="System architecture">
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6675"/></marker>
+</defs>
+<rect x="8" y="8" width="944" height="268" rx="12" fill="#f5f7fa" stroke="#d9dee5"/>
+<text x="24" y="32" font-size="14" font-weight="700" fill="#1d2430">A. OFFLINE – build data and train models</text>
+<!-- row 1 -->
+<g font-size="12.5" fill="#1d2430">
+<rect x="24" y="50" width="130" height="62" rx="8" fill="#fff" stroke="#9aa5b1"/>
+<text x="89" y="74" text-anchor="middle" font-weight="600">Kaggle CSV</text><text x="89" y="92" text-anchor="middle">3,512 rows</text><text x="89" y="106" text-anchor="middle" fill="#5b6675">Context, Response</text>
+<rect x="184" y="50" width="150" height="62" rx="8" fill="#fff" stroke="#9aa5b1"/>
+<text x="259" y="74" text-anchor="middle" font-weight="600">Clean Response</text><text x="259" y="92" text-anchor="middle">fix spacing, URLs,</text><text x="259" y="106" text-anchor="middle">non-English, dups</text>
+<rect x="364" y="50" width="150" height="62" rx="8" fill="#fff" stroke="#9aa5b1"/>
+<text x="439" y="74" text-anchor="middle" font-weight="600">Auto-label words</text><text x="439" y="92" text-anchor="middle">strip marks, keep</text><text x="439" y="106" text-anchor="middle">"mark after word"</text>
+<rect x="544" y="50" width="150" height="62" rx="8" fill="#fff" stroke="#9aa5b1"/>
+<text x="619" y="74" text-anchor="middle" font-weight="600">Split by response</text><text x="619" y="92" text-anchor="middle">train 1,582 · val 197</text><text x="619" y="106" text-anchor="middle">test 199</text>
+<rect x="724" y="50" width="210" height="62" rx="8" fill="#fff" stroke="#9aa5b1"/>
+<text x="829" y="74" text-anchor="middle" font-weight="600">Synthetic windows</text><text x="829" y="92" text-anchor="middle">8,884 random 24–96-word</text><text x="829" y="106" text-anchor="middle">cuts of the train stream</text>
+</g>
+<g stroke="#5b6675" stroke-width="1.6" marker-end="url(#ar)">
+<line x1="154" y1="81" x2="182" y2="81"/><line x1="334" y1="81" x2="362" y2="81"/><line x1="514" y1="81" x2="542" y2="81"/><line x1="694" y1="81" x2="722" y2="81"/>
+</g>
+<!-- row 2 -->
+<g font-size="12.5" fill="#1d2430">
+<rect x="404" y="150" width="250" height="104" rx="10" fill="#e9f0fd" stroke="#2a6fdb" stroke-width="1.6"/>
+<text x="529" y="172" text-anchor="middle" font-weight="700" fill="#2a6fdb">Fine-tune TAGGER (internal LM)</text>
+<text x="529" y="192" text-anchor="middle">pre-trained encoder + linear head</text>
+<text x="529" y="210" text-anchor="middle">DistilBERT  /  XLM-R punct. model</text>
+<text x="529" y="228" text-anchor="middle">cross-entropy on first sub-token</text>
+<text x="529" y="246" text-anchor="middle" fill="#5b6675">→ models/&lt;tag&gt;</text>
+<rect x="684" y="150" width="250" height="104" rx="10" fill="#e6f5f2" stroke="#1b998b" stroke-width="1.6"/>
+<text x="809" y="172" text-anchor="middle" font-weight="700" fill="#1b998b">Fine-tune GPT-2 (external LM)</text>
+<text x="809" y="192" text-anchor="middle">distilgpt2, next-word prediction</text>
+<text x="809" y="210" text-anchor="middle">on punctuated train responses</text>
+<text x="809" y="228" text-anchor="middle">(domain adaptation)</text>
+<text x="809" y="246" text-anchor="middle" fill="#5b6675">→ models/distilgpt2_domain</text>
+<rect x="24" y="150" width="350" height="104" rx="10" fill="#fdeee9" stroke="#e4572e" stroke-width="1.6"/>
+<text x="199" y="172" text-anchor="middle" font-weight="700" fill="#e4572e">Pre-trained baselines (no training)</text>
+<text x="199" y="194" text-anchor="middle">kredor/punctuate-all (XLM-R base, 278 M)</text>
+<text x="199" y="212" text-anchor="middle">oliverguhr/fullstop-…-large (XLM-R large, 560 M)</text>
+<text x="199" y="230" text-anchor="middle">trained on Europarl / news, never saw</text>
+<text x="199" y="246" text-anchor="middle">counselling text → "zero-shot"</text>
+</g>
+<g stroke="#5b6675" stroke-width="1.6" marker-end="url(#ar)" fill="none">
+<path d="M829 112 L829 130 L529 130 L529 148"/>
+<path d="M829 112 L829 148"/>
+</g>
+<!-- inference -->
+<rect x="8" y="296" width="944" height="316" rx="12" fill="#ffffff" stroke="#d9dee5"/>
+<text x="24" y="320" font-size="14" font-weight="700" fill="#1d2430">B. INFERENCE – one input text</text>
+<g font-size="12.5" fill="#1d2430">
+<rect x="24" y="340" width="170" height="70" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="109" y="362" text-anchor="middle" font-weight="600">ASR-style input</text>
+<text x="109" y="380" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5">have you talked to</text>
+<text x="109" y="396" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5">anyone about it</text>
+<rect x="224" y="340" width="150" height="70" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="299" y="362" text-anchor="middle" font-weight="600">Normalise</text><text x="299" y="380" text-anchor="middle">lower-case, strip</text><text x="299" y="396" text-anchor="middle">symbols → words</text>
+<rect x="404" y="340" width="250" height="70" rx="8" fill="#e9f0fd" stroke="#2a6fdb" stroke-width="1.6"/>
+<text x="529" y="362" text-anchor="middle" font-weight="700" fill="#2a6fdb">Tagger (sliding windows)</text>
+<text x="529" y="380" text-anchor="middle">100-word windows, stride 50</text>
+<text x="529" y="396" text-anchor="middle">p(O, COMMA, PERIOD, QUESTION | word)</text>
+<rect x="684" y="340" width="250" height="70" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="809" y="362" text-anchor="middle" font-weight="600">N-best builder</text>
+<text x="809" y="380" text-anchor="middle">beam search per 32-word segment</text>
+<text x="809" y="396" text-anchor="middle">top-8 label sequences + log P_tag</text>
+<rect x="684" y="440" width="250" height="78" rx="8" fill="#e6f5f2" stroke="#1b998b" stroke-width="1.6"/>
+<text x="809" y="462" text-anchor="middle" font-weight="700" fill="#1b998b">GPT-2 scores each hypothesis</text>
+<text x="809" y="480" text-anchor="middle">log P_LM(text | previous segment)</text>
+<text x="809" y="498" text-anchor="middle">"…about it?" vs "…about it."</text>
+<rect x="364" y="440" width="290" height="78" rx="8" fill="#fff8ec" stroke="#f4a259" stroke-width="1.6"/>
+<text x="509" y="462" text-anchor="middle" font-weight="700" fill="#b86a12">Combine and pick the best</text>
+<text x="509" y="482" text-anchor="middle" font-family="Consolas,monospace" font-size="12">log P_tag + λ·log P_LM + β·#marks</text>
+<text x="509" y="502" text-anchor="middle">λ, β tuned on validation only</text>
+<rect x="24" y="440" width="310" height="78" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="179" y="462" text-anchor="middle" font-weight="600">Render output</text>
+<text x="179" y="484" text-anchor="middle" font-family="Consolas,monospace" font-size="12">Have you talked to anyone about it?</text>
+<text x="179" y="504" text-anchor="middle" fill="#5b6675">(capitalisation only for display)</text>
+<text x="529" y="560" text-anchor="middle" fill="#5b6675" font-size="12">Without the external LM, the arg-max of the tagger probabilities is used directly (dashed path).</text>
+</g>
+<g stroke="#5b6675" stroke-width="1.6" marker-end="url(#ar)" fill="none">
+<line x1="194" y1="375" x2="222" y2="375"/><line x1="374" y1="375" x2="402" y2="375"/><line x1="654" y1="375" x2="682" y2="375"/>
+<line x1="809" y1="410" x2="809" y2="438"/><line x1="684" y1="479" x2="656" y2="479"/><line x1="364" y1="479" x2="336" y2="479"/>
+<path d="M480 410 L480 425 L180 425 L180 438" stroke-dasharray="5 4"/>
+</g>
+</svg>
+<figcaption>Figure 1 – End-to-end architecture: offline data/model building (A) and inference with internal + external language models (B).</figcaption>
+</figure>
+
+<!-- ================================================================ 3 -->
+<h2 id="s3">3. The dataset and what it looks like</h2>
+<p><b>Source:</b> Kaggle "NLP Mental Health Conversations" (<code>train.csv</code>). Each row is a question a person asked
+online and one answer written by a licensed psychologist.</p>
+<table>
+<tr><th>column</th><th>what it is</th><th>used?</th></tr>
+<tr><td><code>Context</code></td><td>the user's message (995 unique questions)</td><td>no (assignment says use Response)</td></tr>
+<tr><td><code>Response</code></td><td>the psychologist's reply – long, well-punctuated professional English</td><td><b>yes</b> – source of all training text</td></tr>
+</table>
+<p>Basic facts: 3,512 rows, 4 missing responses, 760 fully duplicated rows, 2,479 unique responses; one question
+has on average 2.8 different answers (max 47).</p>
+
+<h3>Features and labels after our processing</h3>
+<p>For the model, one example = a list of words (the <b>feature</b>) and a list of the same length of tags
+(the <b>label</b>):</p>
+<figure>
+<svg viewBox="0 0 960 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Labelling example">
+<g font-size="14" font-family="Consolas,monospace">
+<text x="12" y="30" fill="#5b6675" font-family="Segoe UI,Arial">original:</text>
+<text x="110" y="30" fill="#1d2430">Chances are, if you really think about it, there were signs. Did you notice them?</text>
+<text x="12" y="70" fill="#5b6675" font-family="Segoe UI,Arial">feature:</text>
+</g>
+<g font-size="13.5" font-family="Consolas,monospace" fill="#1d2430" text-anchor="middle">
+<text x="135" y="70">chances</text><text x="200" y="70">are</text><text x="245" y="70">if</text><text x="285" y="70">you</text><text x="342" y="70">really</text><text x="403" y="70">think</text><text x="463" y="70">about</text><text x="510" y="70">it</text><text x="556" y="70">there</text><text x="608" y="70">were</text><text x="664" y="70">signs</text><text x="716" y="70">did</text><text x="758" y="70">you</text><text x="815" y="70">notice</text><text x="885" y="70">them</text>
+</g>
+<text x="12" y="110" fill="#5b6675" font-size="14">label:</text>
+<g font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">
+<rect x="108" y="94" width="54" height="22" rx="10" fill="#9aa5b1"/><text x="135" y="109">O</text>
+<rect x="170" y="94" width="60" height="22" rx="10" fill="#2a6fdb"/><text x="200" y="109">COMMA</text>
+<rect x="233" y="94" width="24" height="22" rx="10" fill="#9aa5b1"/><text x="245" y="109">O</text>
+<rect x="272" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="285" y="109">O</text>
+<rect x="329" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="342" y="109">O</text>
+<rect x="390" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="403" y="109">O</text>
+<rect x="450" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="463" y="109">O</text>
+<rect x="481" y="94" width="58" height="22" rx="10" fill="#2a6fdb"/><text x="510" y="109">COMMA</text>
+<rect x="543" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="556" y="109">O</text>
+<rect x="595" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="608" y="109">O</text>
+<rect x="633" y="94" width="62" height="22" rx="10" fill="#1b998b"/><text x="664" y="109">PERIOD</text>
+<rect x="703" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="716" y="109">O</text>
+<rect x="745" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="758" y="109">O</text>
+<rect x="802" y="94" width="26" height="22" rx="10" fill="#9aa5b1"/><text x="815" y="109">O</text>
+<rect x="848" y="94" width="74" height="22" rx="10" fill="#e4572e"/><text x="885" y="109">QUESTION</text>
+</g>
+<text x="12" y="140" fill="#5b6675" font-size="12.5">Every word gets exactly one label: the punctuation mark that follows it. Capital letters are removed from the feature (ASR output is lower-case).</text>
+</svg>
+<figcaption>Figure 2 – How one sentence becomes a feature/label pair.</figcaption>
+</figure>
+
+<!-- ================================================================ 4 -->
+<h2 id="s4">4. Creating the synthetic dataset</h2>
+<div class="box simple"><b class="t">Why "synthetic"?</b>
+Nobody hand-labelled punctuation for us. But the psychologists' answers are already correctly punctuated,
+so we can <b>manufacture</b> perfect training pairs automatically: delete the punctuation to make the input,
+and keep what we deleted as the answer key. This is called <b>self-supervision</b> – the labels come free from the text itself.</div>
+
+<figure>
+<svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dataset creation pipeline">
+<defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6675"/></marker></defs>
+<g font-size="12.5" fill="#1d2430">
+<g>
+<rect x="10" y="20" width="170" height="120" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="95" y="42" text-anchor="middle" font-weight="700">1. Select + drop</text>
+<text x="20" y="64">• Response column only</text><text x="20" y="82">• drop 4 missing</text><text x="20" y="100">• drop exact duplicates</text><text x="20" y="118">→ 2,479 responses</text>
+</g>
+<g>
+<rect x="200" y="20" width="230" height="120" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="315" y="42" text-anchor="middle" font-weight="700">2. Clean text</text>
+<text x="210" y="64">• Unicode NFKC, curly quotes → '</text><text x="210" y="82">• "with.Seriously" → "with. Seriously"</text><text x="210" y="100">• remove URLs, e-mails, base64, :)</text><text x="210" y="118">• line breaks / bullets → sentence end</text>
+</g>
+<g>
+<rect x="450" y="20" width="230" height="120" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="565" y="42" text-anchor="middle" font-weight="700">3. Filter</text>
+<text x="460" y="64">• drop 60 Spanish answers</text><text x="460" y="82">• drop &lt; 5 words (3)</text><text x="460" y="100">• drop duplicates that only differed</text><text x="460" y="118">  in punctuation/case (438)</text>
+</g>
+<g>
+<rect x="700" y="20" width="250" height="120" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="825" y="42" text-anchor="middle" font-weight="700">4. Word + label</text>
+<text x="710" y="64">• split on spaces, lower-case</text><text x="710" y="82">• trailing mark → label (? &gt; . &gt; ,)</text><text x="710" y="100">• "e.g." "Dr." are not sentence ends</text><text x="710" y="118">• last word of response = PERIOD</text>
+</g>
+<g>
+<rect x="200" y="180" width="300" height="100" rx="8" fill="#e9f0fd" stroke="#2a6fdb"/>
+<text x="350" y="202" text-anchor="middle" font-weight="700">5. Split by RESPONSE (seed 42)</text>
+<text x="210" y="226">train 1,582 · val 197 · test 199 responses</text><text x="210" y="246">no response is shared → no leakage</text><text x="210" y="266">class shares equal in all three splits</text>
+</g>
+<g>
+<rect x="540" y="180" width="410" height="100" rx="8" fill="#e6f5f2" stroke="#1b998b"/>
+<text x="745" y="202" text-anchor="middle" font-weight="700">6. Synthetic training windows (train only)</text>
+<text x="550" y="226">concatenate shuffled responses into one long "dictation"</text><text x="550" y="246">cut at random points into 24–96-word windows, 2 passes</text><text x="550" y="266">with different offsets → 8,884 samples</text>
+</g>
+</g>
+<g stroke="#5b6675" stroke-width="1.6" marker-end="url(#ar2)" fill="none">
+<line x1="180" y1="80" x2="198" y2="80"/><line x1="430" y1="80" x2="448" y2="80"/><line x1="680" y1="80" x2="698" y2="80"/>
+<path d="M825 140 L825 160 L350 160 L350 178"/><line x1="500" y1="230" x2="538" y2="230"/>
+</g>
+</svg>
+<figcaption>Figure 3 – Dataset creation pipeline (<code>src/punct/data.py</code>, run by <code>scripts/01_build_dataset.py</code>).</figcaption>
+</figure>
+
+<h3>Why random windows?</h3>
+<p>If every training example were exactly one response, the model would learn a shortcut: "the last word is
+always followed by a period". Real ASR text arrives as a continuous stream cut into chunks at arbitrary places.
+By concatenating responses and cutting at random positions, a window can start in the middle of a sentence
+and end in the middle of another, so the model has to <i>really</i> read the words to decide.</p>
+<figure>
+<svg viewBox="0 0 960 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Random windows">
+<g font-size="12">
+<text x="10" y="22" fill="#5b6675">word stream (responses back-to-back):</text>
+<rect x="10" y="32" width="230" height="24" fill="#dbe7fb" stroke="#2a6fdb"/><text x="125" y="49" text-anchor="middle">response A</text>
+<rect x="240" y="32" width="330" height="24" fill="#d8f0eb" stroke="#1b998b"/><text x="405" y="49" text-anchor="middle">response B</text>
+<rect x="570" y="32" width="170" height="24" fill="#fde3db" stroke="#e4572e"/><text x="655" y="49" text-anchor="middle">response C</text>
+<rect x="740" y="32" width="210" height="24" fill="#fdf0dc" stroke="#f4a259"/><text x="845" y="49" text-anchor="middle">response D</text>
+<text x="10" y="82" fill="#5b6675">pass 1 cuts:</text>
+<g fill="none" stroke="#1d2430" stroke-width="1.5"><rect x="10" y="88" width="150" height="16"/><rect x="160" y="88" width="270" height="16"/><rect x="430" y="88" width="200" height="16"/><rect x="630" y="88" width="320" height="16"/></g>
+<text x="10" y="126" fill="#5b6675">pass 2 cuts (new shuffle + offset):</text>
+<g fill="none" stroke="#e4572e" stroke-width="1.5"><rect x="60" y="132" width="230" height="14"/><rect x="290" y="132" width="140" height="14"/><rect x="430" y="132" width="300" height="14"/><rect x="730" y="132" width="220" height="14"/></g>
+</g>
+</svg>
+<figcaption>Figure 4 – Windows of random length (24–96 words) cut across response boundaries; two passes give two different views of every sentence.</figcaption>
+</figure>
+<p>Validation and test are <b>not</b> windowed: each full response is punctuated end-to-end with the same
+sliding-window inference used in production, so evaluation measures the real system.</p>
+
+<!-- ================================================================ 5 -->
+<h2 id="s5">5. Pre-processing details (what the assignment asked for)</h2>
+<table>
+<tr><th>requirement</th><th>what we did</th><th>why</th></tr>
+<tr><td>Removing special characters</td><td>URLs, e-mails, base64 image blobs, HTML tags, emoticons, quotes, brackets, <code>* # + /</code> removed; hyphen/slash compounds split (<code>self-esteem → self esteem</code>); <code>&amp; → and</code>, <code>% → percent</code></td><td>The input should look like ASR output: only words. Kept apostrophes (<code>don't</code>) because ASR outputs contractions.</td></tr>
+<tr><td>Lower-casing</td><td>All words lower-cased</td><td>Capital letters would leak the answer ("…time Have" ⇒ a period before "Have").</td></tr>
+<tr><td>Tokenisation</td><td>Two levels: (1) whitespace <b>word</b> tokens = units we label; (2) the transformer's own <b>sub-word</b> tokeniser (WordPiece / SentencePiece) inside the model</td><td>Labels belong to words; models need sub-words. Alignment explained in §8.</td></tr>
+<tr><td>Missing values</td><td>4 empty responses dropped</td><td>Nothing to learn from.</td></tr>
+<tr><td>Duplicates</td><td>760 duplicated rows + 438 responses that became identical after cleaning dropped</td><td>Duplicates across train/test would inflate the score (leakage).</td></tr>
+<tr><td>Train/validation split</td><td>80/10/10 train/val/test <b>by response</b>, seed 42</td><td>Val for tuning (epochs, λ, β); test touched only once for the final table.</td></tr>
+</table>
+
+<h3>Cleaning – before and after (real example)</h3>
+<pre>RAW  : ...hang out with.Seriously, the social context in which a person lives is a big
+       influence in self-esteem.Otherwise, you can go round and round...
+CLEAN: ...hang out with. Seriously, the social context in which a person lives is a big
+       influence in self-esteem. Otherwise, you can go round and round...
+INPUT: ... hang out with seriously the social context in which a person lives is a big
+       influence in self esteem otherwise you can go round and round ...
+LABEL: ... with/PERIOD seriously/COMMA ... esteem/PERIOD otherwise/COMMA ...</pre>
+<div class="box warn"><b class="t">Without this fix</b>
+"with.Seriously" would have been one token, losing a sentence boundary. This pattern occurs <b>3,710 times</b>
+in the raw data – about one in four periods would have been lost.</div>
+
+<!-- ================================================================ 6 -->
+<h2 id="s6">6. Exploratory data analysis (train split)</h2>
+<figure><img src="../results/figures/eda_raw_issues.png" alt="raw issues"><figcaption>Figure 5 – Problems found in the raw Response column (log scale).</figcaption></figure>
+<figure><img src="../results/figures/eda_cleaning_funnel.png" alt="funnel"><figcaption>Figure 6 – How many responses survive each cleaning step.</figcaption></figure>
+<figure><img src="../results/figures/eda_label_distribution.png" alt="labels"><figcaption>Figure 7 – Label distribution: 90.1% O, 5.3% PERIOD, 4.2% COMMA, 0.45% QUESTION.</figcaption></figure>
+<ul>
+<li><b>Heavy imbalance.</b> A model that never predicts punctuation is already 90% "accurate". That is why
+accuracy is useless here and we report per-class F1.</li>
+<li><b>QUESTION is rare</b> (1,192 training examples). Counsellors mostly make statements; the few questions are
+often rhetorical ("have you considered…?"). Expect the lowest and most variable score on this class.</li>
+<li>Class shares are the same in train/val/test (COMMA 4.2/3.9/4.2%, PERIOD 5.3/5.4/5.2%, QUESTION 0.45/0.54/0.45%)
+→ the random split is representative.</li>
+</ul>
+<figure><img src="../results/figures/eda_lengths.png" alt="lengths"><figcaption>Figure 8 – Responses have a median of 141 words; sentences a median of 15 words (mean 17.5); 0.73 commas per sentence.</figcaption></figure>
+<p>Responses (median 141, max 946 words) are longer than one model window, which is why inference needs
+<b>sliding windows</b>. Sentences are short enough (75% ≤ 23 words) that a 100-word window always contains
+several complete sentences of context.</p>
+<figure><img src="../results/figures/eda_lexical_cues.png" alt="cues"><figcaption>Figure 9 – Lexical cues: words after a comma (and, but, then, or…), words before a period, first words of questions (what, is, are, do, how…).</figcaption></figure>
+<p>These cues are what the models learn. A comma is very often followed by a conjunction (<i>and</i> 1,133×,
+<i>but</i> 533×); questions start with auxiliaries/wh-words (<i>what</i>, <i>is</i>, <i>are</i>, <i>do</i>, <i>how</i>). Note the
+question cue is at the <b>start</b> of the sentence while the label is at the <b>end</b> – the model needs long-range
+context, which is exactly what self-attention gives.</p>
+<figure><img src="../results/figures/eda_position.png" alt="position"><figcaption>Figure 10 – Punctuation is spread evenly through a response (no positional shortcut), questions slightly more frequent near the start and the end.</figcaption></figure>
+
+<!-- ================================================================ 7 -->
+<h2 id="s7">7. Background: transformers in 5 minutes</h2>
+<div class="box simple"><b class="t">The one-paragraph version</b>
+A transformer turns each word into a vector, then repeatedly lets every word "look at" every other word
+(<b>self-attention</b>) to update its vector with context. After several layers, the vector for "it" in
+"…anyone about it" knows that the sentence started with "have you", so a small classifier on top can say
+"QUESTION". The model is first <b>pre-trained</b> on huge amounts of text (so it already understands English),
+then <b>fine-tuned</b> on our small labelled dataset.</div>
+<ul>
+<li><b>Self-attention</b>: for each word, compute how relevant every other word is (a softmax over dot-products of
+"query" and "key" vectors) and take a weighted average of their "value" vectors. Many attention "heads" run in parallel.</li>
+<li><b>Bidirectional encoder (BERT, DistilBERT, XLM-RoBERTa)</b>: every word sees words on both sides. Pre-trained with
+<b>masked-language-modelling</b> (hide 15% of words, predict them). Perfect for tagging, because a punctuation decision
+depends on the next words too ("…time <u>and</u>…" vs "…time. <u>Have</u>…").</li>
+<li><b>Causal decoder (GPT-2)</b>: each word sees only words to its left; pre-trained to predict the next token. It gives a
+probability for a whole sentence – ideal for <i>judging</i> how natural a punctuated sentence is.</li>
+<li><b>DistilBERT</b>: a 6-layer, 66 M-parameter compressed BERT (40% smaller, ~60% faster, keeps ~97% of BERT's quality).
+<b>XLM-RoBERTa</b>: RoBERTa trained on 100 languages (base 278 M / large 560 M).</li>
+</ul>
+
+<!-- ================================================================ 8 -->
+<h2 id="s8">8. Model 1 – the tagger (internal language model)</h2>
+<figure>
+<svg viewBox="0 0 960 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tagger architecture">
+<defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6675"/></marker></defs>
+<g font-size="12.5" fill="#1d2430">
+<text x="10" y="24" font-weight="700">words</text>
+<g font-family="Consolas,monospace" text-anchor="middle">
+<rect x="120" y="8" width="90" height="26" rx="5" fill="#f5f7fa" stroke="#9aa5b1"/><text x="165" y="26">feeling</text>
+<rect x="250" y="8" width="160" height="26" rx="5" fill="#f5f7fa" stroke="#9aa5b1"/><text x="330" y="26">overwhelmed</text>
+<rect x="450" y="8" width="70" height="26" rx="5" fill="#f5f7fa" stroke="#9aa5b1"/><text x="485" y="26">is</text>
+<rect x="560" y="8" width="90" height="26" rx="5" fill="#f5f7fa" stroke="#9aa5b1"/><text x="605" y="26">okay</text>
+</g>
+<text x="10" y="74" font-weight="700">sub-words</text>
+<g font-family="Consolas,monospace" text-anchor="middle" font-size="12">
+<rect x="80" y="58" width="44" height="26" rx="5" fill="#fff" stroke="#9aa5b1"/><text x="102" y="76">[CLS]</text>
+<rect x="130" y="58" width="70" height="26" rx="5" fill="#dbe7fb" stroke="#2a6fdb"/><text x="165" y="76">feeling</text>
+<rect x="250" y="58" width="70" height="26" rx="5" fill="#dbe7fb" stroke="#2a6fdb"/><text x="285" y="76">over</text>
+<rect x="330" y="58" width="80" height="26" rx="5" fill="#fff" stroke="#9aa5b1" stroke-dasharray="4 3"/><text x="370" y="76">##whelmed</text>
+<rect x="450" y="58" width="70" height="26" rx="5" fill="#dbe7fb" stroke="#2a6fdb"/><text x="485" y="76">is</text>
+<rect x="570" y="58" width="70" height="26" rx="5" fill="#dbe7fb" stroke="#2a6fdb"/><text x="605" y="76">okay</text>
+<rect x="680" y="58" width="50" height="26" rx="5" fill="#fff" stroke="#9aa5b1"/><text x="705" y="76">[SEP]</text>
+</g>
+<rect x="60" y="104" width="680" height="34" rx="6" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="400" y="126" text-anchor="middle">token embedding + position embedding  (768-dim vector per sub-word)</text>
+<rect x="60" y="152" width="680" height="128" rx="8" fill="#e9f0fd" stroke="#2a6fdb" stroke-width="1.6"/>
+<text x="400" y="174" text-anchor="middle" font-weight="700" fill="#2a6fdb">pre-trained transformer encoder = INTERNAL LANGUAGE MODEL</text>
+<g>
+<rect x="90" y="186" width="620" height="24" rx="4" fill="#fff" stroke="#2a6fdb"/><text x="400" y="203" text-anchor="middle">layer 1: multi-head self-attention (12 heads) → add &amp; norm → feed-forward 3072 → add &amp; norm</text>
+<rect x="90" y="216" width="620" height="24" rx="4" fill="#fff" stroke="#2a6fdb"/><text x="400" y="233" text-anchor="middle">… (DistilBERT 6 layers · XLM-R base 12 · XLM-R large 24 with 1024-dim) …</text>
+<rect x="90" y="246" width="620" height="24" rx="4" fill="#fff" stroke="#2a6fdb"/><text x="400" y="263" text-anchor="middle">layer N → contextual vector h for every sub-word (knows the whole window)</text>
+</g>
+<rect x="60" y="300" width="680" height="34" rx="6" fill="#fff8ec" stroke="#f4a259"/>
+<text x="400" y="322" text-anchor="middle">dropout → linear layer 768 → 4 (or the pre-trained 6-way punctuation head) → softmax</text>
+<text x="10" y="372" font-weight="700">per-word</text><text x="10" y="388" font-weight="700">output</text>
+<g font-size="11" text-anchor="middle">
+<rect x="120" y="356" width="90" height="40" rx="5" fill="#fff" stroke="#9aa5b1"/><text x="165" y="372">O .92 C .05</text><text x="165" y="388">P .02 Q .01</text>
+<rect x="250" y="356" width="70" height="40" rx="5" fill="#fff" stroke="#2a6fdb"/><text x="285" y="372">C .81 O .15</text><text x="285" y="388">P .03</text>
+<rect x="330" y="356" width="80" height="40" rx="5" fill="#f5f7fa" stroke="#9aa5b1" stroke-dasharray="4 3"/><text x="370" y="380" fill="#5b6675">ignored</text>
+<rect x="450" y="356" width="70" height="40" rx="5" fill="#fff" stroke="#9aa5b1"/><text x="485" y="372">O .97</text><text x="485" y="388">C .02</text>
+<rect x="570" y="356" width="70" height="40" rx="5" fill="#fff" stroke="#1b998b"/><text x="605" y="372">P .88 Q .07</text><text x="605" y="388">O .05</text>
+</g>
+<text x="10" y="430" font-weight="700">label</text>
+<g font-size="11" font-weight="700" fill="#fff" text-anchor="middle">
+<rect x="140" y="416" width="50" height="20" rx="9" fill="#9aa5b1"/><text x="165" y="430">O</text>
+<rect x="255" y="416" width="60" height="20" rx="9" fill="#2a6fdb"/><text x="285" y="430">COMMA</text>
+<rect x="460" y="416" width="50" height="20" rx="9" fill="#9aa5b1"/><text x="485" y="430">O</text>
+<rect x="575" y="416" width="60" height="20" rx="9" fill="#1b998b"/><text x="605" y="430">PERIOD</text>
+</g>
+<g font-size="12" fill="#5b6675">
+<text x="770" y="70">Only the FIRST sub-word</text><text x="770" y="86">of each word is labelled;</text><text x="770" y="102">"##whelmed" gets −100</text><text x="770" y="118">(ignored by the loss).</text>
+<text x="770" y="200">Training loss:</text><text x="770" y="216">cross-entropy between</text><text x="770" y="232">softmax output and the</text><text x="770" y="248">gold label, averaged</text><text x="770" y="264">over labelled sub-words.</text>
+<text x="770" y="372">Prediction = arg-max,</text><text x="770" y="388">or send the full</text><text x="770" y="404">distribution to the</text><text x="770" y="420">external LM (§11).</text>
+</g>
+</g>
+<g stroke="#5b6675" stroke-width="1.4" marker-end="url(#ar3)">
+<line x1="165" y1="34" x2="165" y2="56"/><line x1="330" y1="34" x2="300" y2="56"/><line x1="485" y1="34" x2="485" y2="56"/><line x1="605" y1="34" x2="605" y2="56"/>
+<line x1="400" y1="138" x2="400" y2="150"/><line x1="400" y1="280" x2="400" y2="298"/><line x1="400" y1="334" x2="400" y2="354"/>
+<line x1="165" y1="396" x2="165" y2="414"/><line x1="285" y1="396" x2="285" y2="414"/><line x1="485" y1="396" x2="485" y2="414"/><line x1="605" y1="396" x2="605" y2="414"/>
+</g>
+</svg>
+<figcaption>Figure 11 – Token-classification architecture (<code>src/punct/tagger.py</code>). The pre-trained encoder is the internal language model.</figcaption>
+</figure>
+
+<h3>Long documents: sliding-window inference</h3>
+<p>A response can have 900+ words, but we feed the model 100-word windows that overlap by 50 words. Each word
+keeps the prediction from the window in which it has the most context on both sides (it is farthest from a window
+edge). The very start and end of the document are treated as true edges, not window edges.</p>
+<div class="box"><b class="t">End-of-input decoding constraint</b>
+The last word of the input always closes a sentence: if the model predicts O or COMMA there, it is replaced by PERIOD
+(or QUESTION if the model scores QUESTION higher than PERIOD at that word). In the external-LM decoder the last segment is
+restricted to hypotheses that end with PERIOD/QUESTION. Why this is needed is explained in §15 (challenge 14); it is applied
+identically to every system in the results.</div>
+<figure>
+<svg viewBox="0 0 960 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sliding windows">
+<g font-size="12">
+<rect x="10" y="12" width="940" height="22" fill="#f5f7fa" stroke="#9aa5b1"/><text x="480" y="28" text-anchor="middle">a 250-word response</text>
+<rect x="10" y="44" width="376" height="18" fill="none" stroke="#2a6fdb" stroke-width="1.5"/><text x="20" y="57" fill="#2a6fdb">window 1: words 0–99</text>
+<rect x="198" y="68" width="376" height="18" fill="none" stroke="#1b998b" stroke-width="1.5"/><text x="208" y="81" fill="#1b998b">window 2: words 50–149</text>
+<rect x="386" y="92" width="376" height="18" fill="none" stroke="#e4572e" stroke-width="1.5"/><text x="396" y="105" fill="#e4572e">window 3: 100–199</text>
+<rect x="574" y="44" width="376" height="18" fill="none" stroke="#f4a259" stroke-width="1.5"/><text x="584" y="57" fill="#b86a12">window 4: 150–249</text>
+<text x="10" y="126" fill="#5b6675">each word uses the window where it is most central → no word is judged right at an artificial window cut</text>
+</g>
+</svg>
+<figcaption>Figure 12 – Overlapping windows (window 100 words, stride 50).</figcaption>
+</figure>
+
+<!-- ================================================================ 9 -->
+<h2 id="s9">9. Pre-trained end-to-end baselines (zero-shot)</h2>
+<p>The assignment asks to compare fine-tuning against "pre-trained (baseline) end-to-end models". We use two public
+models that are <b>already trained for punctuation restoration</b> and run them on our test set without any training:</p>
+<table>
+<tr><th>model</th><th>backbone</th><th>trained on</th><th>labels</th></tr>
+<tr><td><code>kredor/punctuate-all</code></td><td>XLM-RoBERTa base (278 M)</td><td>Europarl parliament speeches, 12 languages</td><td><code>0 . , ? - :</code></td></tr>
+<tr><td><code>oliverguhr/fullstop-punctuation-multilang-large</code></td><td>XLM-RoBERTa large (560 M)</td><td>Europarl, EN/DE/FR/IT (a widely used published model)</td><td><code>0 . , ? - :</code></td></tr>
+</table>
+<p>Their 6 labels are <b>folded</b> into our 4 by summing probabilities: <code>-</code> and <code>:</code> → COMMA (same rule as our data).
+They receive exactly the same lower-cased, punctuation-free input as our models, so the comparison is fair.</p>
+<p>A trivial <b>rule baseline</b> (only put a period at the very end of each response) is also reported, to show the floor.</p>
+
+<!-- ================================================================ 10 -->
+<h2 id="s10">10. Fine-tuning on the domain</h2>
+<p>Two fine-tuned systems answer two different questions:</p>
+<ol>
+<li><b>Does domain fine-tuning help an existing punctuation model?</b> We continue training <code>kredor/punctuate-all</code>
+on our windows, <b>keeping its own punctuation head</b> (our labels are mapped onto its ids: O→0, COMMA→",", PERIOD→".",
+QUESTION→"?"). Same model before vs. after = clean measurement of the fine-tuning effect.</li>
+<li><b>Can a small generic LM learn the task from our data alone?</b> <code>distilbert-base-uncased</code> (never trained on
+punctuation, uncased like our input) gets a fresh 4-way head.</li>
+</ol>
+<table>
+<tr><th>hyper-parameter</th><th>DistilBERT</th><th>XLM-R punct. model</th><th>reason</th></tr>
+<tr><td>optimizer</td><td colspan="2">AdamW, weight decay 0.01</td><td>standard for transformers</td></tr>
+<tr><td>learning rate</td><td>5e-5</td><td>2e-5</td><td>the already-trained head needs gentler updates</td></tr>
+<tr><td>schedule</td><td colspan="2">10% linear warm-up, then linear decay to 0</td><td>stabilises the randomly initialised head early on</td></tr>
+<tr><td>epochs</td><td>3</td><td>1 (CPU budget)</td><td>see results/logs; DistilBERT loss flattens by epoch 3</td></tr>
+<tr><td>batch size / max length</td><td colspan="2">16 windows / 256 sub-words</td><td>a 96-word window is ≈ 130 sub-words</td></tr>
+<tr><td>gradient clipping</td><td colspan="2">1.0</td><td>avoids rare exploding updates</td></tr>
+<tr><td>loss</td><td colspan="2">cross-entropy on the first sub-token of each word</td><td>one decision per word</td></tr>
+</table>
+<div class="box"><b class="t">Class imbalance – why no class weights?</b>
+With 90% O, one might weight the loss. We kept plain cross-entropy because (1) the pre-trained models are already
+calibrated with it, (2) weighting usually trades precision for recall without improving F1 in punctuation tasks, and
+(3) the external-LM step has an explicit β "punctuation bonus" that adjusts the precision/recall trade-off on validation
+data – a cleaner knob than retraining with weights.</div>
+<figure><img src="../results/figures/res_training_loss.png" alt="training loss"><figcaption>Figure 13 – Training loss (smoothed, log scale).</figcaption></figure>
+
+<!-- ================================================================ 11 -->
+<h2 id="s11">11. Model 2 – GPT-2 N-best rescoring (external language model)</h2>
+<div class="box simple"><b class="t">Intuition</b>
+The tagger decides each gap mostly on its own. A left-to-right LM reads the <i>finished</i> sentence and knows what
+sounds natural: "have you talked to anyone about it<b>?</b>" is much more probable text than "…about it<b>.</b>". This
+mirrors how speech recognisers combine an acoustic model with an external LM ("shallow fusion" / "rescoring").</div>
+<figure>
+<svg viewBox="0 0 960 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="N-best rescoring">
+<defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6675"/></marker></defs>
+<g font-size="12.5" fill="#1d2430">
+<rect x="10" y="10" width="250" height="140" rx="8" fill="#e9f0fd" stroke="#2a6fdb"/>
+<text x="135" y="32" text-anchor="middle" font-weight="700">1. tagger probabilities</text>
+<text x="20" y="56" font-family="Consolas,monospace" font-size="11.5">have   O .99</text>
+<text x="20" y="74" font-family="Consolas,monospace" font-size="11.5">you    O .99</text>
+<text x="20" y="92" font-family="Consolas,monospace" font-size="11.5">talked O .98</text>
+<text x="20" y="110" font-family="Consolas,monospace" font-size="11.5">…</text>
+<text x="20" y="128" font-family="Consolas,monospace" font-size="11.5">it     P .55  Q .40  O .05</text>
+<rect x="300" y="10" width="300" height="140" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="450" y="32" text-anchor="middle" font-weight="700">2. N-best (beam, K = 8)</text>
+<text x="310" y="56" font-family="Consolas,monospace" font-size="11.5">h1 …about it.   log P_tag −0.62</text>
+<text x="310" y="76" font-family="Consolas,monospace" font-size="11.5">h2 …about it?   log P_tag −0.94</text>
+<text x="310" y="96" font-family="Consolas,monospace" font-size="11.5">h3 …about, it.  log P_tag −3.4</text>
+<text x="310" y="116" font-family="Consolas,monospace" font-size="11.5">…  (labels with p &lt; 0.05 pruned)</text>
+<text x="310" y="138" fill="#5b6675" font-size="11.5">exact K-best: labels are independent</text>
+<rect x="640" y="10" width="310" height="140" rx="8" fill="#e6f5f2" stroke="#1b998b"/>
+<text x="795" y="32" text-anchor="middle" font-weight="700">3. GPT-2 log-likelihood</text>
+<text x="650" y="56">context = previous 32-word segment</text>
+<text x="650" y="78" font-family="Consolas,monospace" font-size="11.5">h1  log P_LM = −41.7</text>
+<text x="650" y="98" font-family="Consolas,monospace" font-size="11.5">h2  log P_LM = −39.2</text>
+<text x="650" y="118" font-family="Consolas,monospace" font-size="11.5">h3  log P_LM = −45.0</text>
+<text x="650" y="140" fill="#5b6675" font-size="11.5">generic distilgpt2 or domain-tuned</text>
+<rect x="160" y="190" width="640" height="70" rx="8" fill="#fff8ec" stroke="#f4a259" stroke-width="1.6"/>
+<text x="480" y="214" text-anchor="middle" font-weight="700">4. score(h) = log P_tag(h) + λ · log P_LM(h) + β · (#punctuation marks in h)</text>
+<text x="480" y="236" text-anchor="middle">e.g. λ = 0.3: h1 = −0.62 − 12.5 = −13.1 ; h2 = −0.94 − 11.8 = −12.7  → h2 wins → "about it?"</text>
+<text x="480" y="254" text-anchor="middle" fill="#5b6675">β offsets the LM's natural bias against extra tokens (each mark costs log-probability)</text>
+<rect x="160" y="276" width="640" height="44" rx="8" fill="#f5f7fa" stroke="#9aa5b1"/>
+<text x="480" y="296" text-anchor="middle">5. λ ∈ {0 … 8}, β ∈ {0 … 13} grid-searched on VALIDATION micro-F1 (130 settings), then applied once to TEST</text>
+<text x="480" y="312" text-anchor="middle" fill="#5b6675">λ = 0 reproduces the tagger alone, so the search can never be worse than the tagger on validation</text>
+</g>
+<g stroke="#5b6675" stroke-width="1.6" marker-end="url(#ar4)" fill="none">
+<line x1="260" y1="80" x2="298" y2="80"/><line x1="600" y1="80" x2="638" y2="80"/><path d="M795 150 L795 170 L480 170 L480 188"/>
+</g>
+</svg>
+<figcaption>Figure 14 – External-LM N-best rescoring (<code>src/punct/lm_rescore.py</code>). Numbers are illustrative.</figcaption>
+</figure>
+<h4>Domain adaptation of the external LM</h4>
+<p><code>distilgpt2</code> (82 M parameters) is further trained for 2 epochs on the punctuated, lower-cased training
+responses (exactly the format it will score). We compare the <b>generic</b> GPT-2 and this <b>domain</b> GPT-2 – this
+is a second, independent test of "does fine-tuning on the domain help?". Validation perplexity measures how well each
+LM predicts counselling text (lower = better).</p>
+<h4>Engineering details</h4>
+<ul>
+<li>Segments of 32 words; prefix context = the tagger-best text of the previous segment (makes all segments independent,
+so every hypothesis can be scored in one batched GPT-2 pass).</li>
+<li>All tagger and LM scores are cached once, so the 130-point λ/β grid search costs nothing extra.</li>
+</ul>
+
+<!-- ================================================================ 12 -->
+<h2 id="s12">12. How we measure quality</h2>
+<p>For each punctuation class (COMMA, PERIOD, QUESTION) and each word:</p>
+<ul>
+<li><b>True positive (TP)</b>: we predicted that mark and it is correct.</li>
+<li><b>False positive (FP)</b>: we predicted the mark but the reference has something else (an insertion or a wrong mark).</li>
+<li><b>False negative (FN)</b>: the reference has the mark and we predicted something else (a deletion or wrong mark).</li>
+</ul>
+<pre>precision = TP / (TP + FP)     "when we put a comma, how often is it right?"
+recall    = TP / (TP + FN)     "of all real commas, how many did we find?"
+F1        = 2·P·R / (P + R)    harmonic mean – high only if both are high</pre>
+<ul>
+<li><b>micro-F1</b> (headline): pool TP/FP/FN of the three classes, then compute F1. "O" is never counted as a hit.</li>
+<li><b>macro-F1</b>: average of the three class F1s – gives the rare QUESTION class equal weight.</li>
+<li><b>SER, slot error rate</b> = (substitutions + deletions + insertions) / number of reference marks. The speech community's
+metric; lower is better and it can exceed 100%.</li>
+<li><b>95% confidence intervals</b>: bootstrap – resample the 199 test responses with replacement 1,000 times and recompute.
+<b>Paired bootstrap</b> gives the probability that system A is not better than B on the same resamples (≈ a p-value).</li>
+</ul>
+
+<!-- ================================================================ 13 -->
+<h2 id="s13">13. Results</h2>
+<!--RESULTS-->
+<div class="box simple"><b class="t">The answer in five lines</b>
+1. <b>Domain fine-tuning works.</b> The same XLM-R punctuation model goes from <b>75.4 → 78.9</b> micro-F1 after one epoch on
+our counselling data (+3.6, 95% CI +2.6…+4.5, p &lt; 0.001); slot error rate drops from 40.5% to 32.7%.<br>
+2. <b>The external LM adds more on top.</b> GPT-2 N-best rescoring lifts it to <b>80.4</b> (+1.4, p &lt; 0.001); the
+domain-adapted GPT-2 beats the generic one (+0.8, p &lt; 0.001).<br>
+3. <b>Small fine-tuned beats big zero-shot.</b> Our 278 M-parameter system (80.4) beats the 560 M-parameter
+FullStop-large model used zero-shot (77.4) by +3.0 (p &lt; 0.001).<br>
+4. <b>Task pre-training matters most.</b> DistilBERT, which never saw a punctuation task before, reaches only 70.0
+(74.8 with GPT-2): ~265 k training words are not enough to learn the task from scratch.<br>
+5. <b>Commas gain the most</b> from fine-tuning (62.3 → 69.3 F1): comma use is the most style- and domain-dependent mark.
+</div>
+
+<h3>Reading the table step by step</h3>
+<ul>
+<li><b>Rule baseline (10.8):</b> putting only a final period finds 5.7% of the marks – the task is far from trivial.</li>
+<li><b>Pre-trained zero-shot (75.4 / 77.4):</b> public models trained on parliament speeches already transfer well;
+the larger one is better (+2.0, p = 0.001). They are good at PERIOD and QUESTION but weaker on COMMA (62–65 F1)
+and over-insert marks (581 insertions for the base model).</li>
+<li><b>Domain fine-tuning (78.9):</b> precision rises from 74.1 to 80.6 – the model learns the counsellors' sparser comma
+style and stops inserting marks they would not use (insertions 581 → 342). COMMA F1 +4.5, PERIOD +1.9, QUESTION +2.1.</li>
+<li><b>+ external LM (80.4):</b> the LM mostly recovers marks the tagger missed (recall 77.4 → 80.3) while keeping
+precision. With the stronger tagger the optimal LM weight is small (λ = 0.5); the LM acts as a tie-breaker.</li>
+<li><b>DistilBERT (70.0 → 74.8 with LM):</b> the weaker tagger benefits much more from the LM (+4.8) and prefers a large LM
+weight – validation F1 is flat (±0.1) for every λ ≥ 1, i.e. the LM effectively chooses among the tagger's top-8 candidates.</li>
+<li><b>Domain vs generic GPT-2:</b> domain adaptation lowers validation perplexity from 44.4 to 29.9 and gives a
+consistent extra gain for both taggers (+0.8 and +1.8) – a second, independent confirmation that domain adaptation helps.</li>
+</ul>
+
+<div class="box warn"><b class="t">Honest notes</b>
+• All numbers use the end-of-input constraint (§8, challenge 14), applied identically to every system and chosen on
+validation. Without it the fine-tuned XLM-R scores 76.6 – still better than its zero-shot version (75.4); the full
+with/without table is in <code>results/tables/end_constraint_effect.csv</code>.<br>
+• One run per configuration (CPU only); the CIs cover test-set sampling noise, not seed variance.<br>
+• XLM-R was fine-tuned for only 1 epoch and the 560 M model not at all – both are likely to improve further on a GPU.
+</div>
+
+<h3>Main table (test set, %)</h3>
+<table><tr><th>system</th><th>group</th><th class=n>COMMA F1</th><th class=n>PERIOD F1</th><th class=n>QUESTION F1</th><th class=n>micro P</th><th class=n>micro R</th><th class=n>micro F1</th><th class=n>95% CI</th><th class=n>macro F1</th><th class=n>SER ↓</th><th class=n>val micro F1</th></tr>
+<tr><td>Rule: period at end only</td><td>baseline</td><td class=n>0.0</td><td class=n>19.4</td><td class=n>0.0</td><td class=n>97.0</td><td class=n>5.7</td><td class=n>10.8</td><td class=n>9.8–12.0</td><td class=n>6.5</td><td class=n>94.3</td><td class=n>10.3</td></tr>
+<tr><td>XLM-R base punct. model (zero-shot)</td><td>pre-trained</td><td class=n>62.3</td><td class=n>85.4</td><td class=n>83.7</td><td class=n>74.1</td><td class=n>76.6</td><td class=n>75.4</td><td class=n>73.5–77.5</td><td class=n>77.1</td><td class=n>40.5</td><td class=n>74.2</td></tr>
+<tr><td>XLM-R large FullStop (zero-shot)</td><td>pre-trained</td><td class=n>64.8</td><td class=n>86.8</td><td class=n>87.7</td><td class=n>76.5</td><td class=n>78.3</td><td class=n>77.4</td><td class=n>75.7–79.1</td><td class=n>79.8</td><td class=n>36.4</td><td class=n>76.7</td></tr>
+<tr><td>XLM-R base punct. model + domain FT</td><td>fine-tuned</td><td class=n>66.8</td><td class=n>87.3</td><td class=n>85.8</td><td class=n>80.6</td><td class=n>77.4</td><td class=n>78.9</td><td class=n>77.2–80.8</td><td class=n>80.0</td><td class=n>32.7</td><td class=n>79.1</td></tr>
+<tr><td>DistilBERT + domain FT</td><td>fine-tuned</td><td class=n>57.3</td><td class=n>79.1</td><td class=n>71.3</td><td class=n>72.8</td><td class=n>67.4</td><td class=n>70.0</td><td class=n>68.2–71.8</td><td class=n>69.2</td><td class=n>45.6</td><td class=n>68.7</td></tr>
+<tr><td>DistilBERT FT + GPT-2 rescoring (generic)</td><td>fine-tuned + ext. LM</td><td class=n>60.1</td><td class=n>82.3</td><td class=n>73.2</td><td class=n>76.1</td><td class=n>70.1</td><td class=n>73.0</td><td class=n>71.2–74.7</td><td class=n>71.9</td><td class=n>40.9</td><td class=n>72.4</td></tr>
+<tr><td>DistilBERT FT + GPT-2 rescoring (domain)</td><td>fine-tuned + ext. LM</td><td class=n>63.0</td><td class=n>83.5</td><td class=n>76.8</td><td class=n>76.1</td><td class=n>73.5</td><td class=n>74.8</td><td class=n>73.0–76.4</td><td class=n>74.4</td><td class=n>39.3</td><td class=n>73.0</td></tr>
+<tr><td>XLM-R base FT + GPT-2 rescoring (generic)</td><td>fine-tuned + ext. LM</td><td class=n>68.7</td><td class=n>87.5</td><td class=n>85.1</td><td class=n>79.4</td><td class=n>79.7</td><td class=n>79.5</td><td class=n>77.8–81.4</td><td class=n>80.5</td><td class=n>32.3</td><td class=n>79.3</td></tr>
+<tr class="best"><td>XLM-R base FT + GPT-2 rescoring (domain)</td><td>fine-tuned + ext. LM</td><td class=n>69.3</td><td class=n>88.4</td><td class=n>86.7</td><td class=n>80.5</td><td class=n>80.3</td><td class=n>80.4</td><td class=n>78.7–82.2</td><td class=n>81.5</td><td class=n>31.0</td><td class=n>79.7</td></tr>
+</table>
+<p class=sub>micro = pooled over COMMA/PERIOD/QUESTION; CI = 1,000× bootstrap over test responses; SER lower is better; best system highlighted. Val column shows the same metric on validation.</p>
+<figure><img src="../results/figures/res_micro_f1.png" alt="res_micro_f1"><figcaption>Figure 15 – Headline micro-F1 with 95% bootstrap confidence intervals.</figcaption></figure>
+<figure><img src="../results/figures/res_f1_by_class.png" alt="res_f1_by_class"><figcaption>Figure 16 – F1 per punctuation class.</figcaption></figure>
+<h3>Precision and recall per class (test, %)</h3>
+<table><tr><th>system</th><th class=n>COMMA P</th><th class=n>COMMA R</th><th class=n>PERIOD P</th><th class=n>PERIOD R</th><th class=n>QUESTION P</th><th class=n>QUESTION R</th></tr>
+<tr><td>Rule: period at end only</td><td class=n>0.0</td><td class=n>0.0</td><td class=n>97.0</td><td class=n>10.8</td><td class=n>0.0</td><td class=n>0.0</td></tr>
+<tr><td>XLM-R base punct. model (zero-shot)</td><td class=n>60.6</td><td class=n>64.0</td><td class=n>84.4</td><td class=n>86.4</td><td class=n>86.3</td><td class=n>81.3</td></tr>
+<tr><td>XLM-R large FullStop (zero-shot)</td><td class=n>63.7</td><td class=n>65.9</td><td class=n>85.9</td><td class=n>87.7</td><td class=n>90.4</td><td class=n>85.2</td></tr>
+<tr><td>XLM-R base punct. model + domain FT</td><td class=n>72.1</td><td class=n>62.3</td><td class=n>85.7</td><td class=n>89.0</td><td class=n>87.8</td><td class=n>83.9</td></tr>
+<tr><td>DistilBERT + domain FT</td><td class=n>64.1</td><td class=n>51.8</td><td class=n>78.0</td><td class=n>80.2</td><td class=n>77.9</td><td class=n>65.8</td></tr>
+<tr><td>DistilBERT FT + GPT-2 rescoring (generic)</td><td class=n>66.9</td><td class=n>54.5</td><td class=n>81.5</td><td class=n>83.1</td><td class=n>83.5</td><td class=n>65.2</td></tr>
+<tr><td>DistilBERT FT + GPT-2 rescoring (domain)</td><td class=n>66.6</td><td class=n>59.7</td><td class=n>82.1</td><td class=n>84.9</td><td class=n>84.5</td><td class=n>70.3</td></tr>
+<tr><td>XLM-R base FT + GPT-2 rescoring (generic)</td><td class=n>69.9</td><td class=n>67.5</td><td class=n>85.9</td><td class=n>89.2</td><td class=n>87.2</td><td class=n>83.2</td></tr>
+<tr><td>XLM-R base FT + GPT-2 rescoring (domain)</td><td class=n>70.9</td><td class=n>67.8</td><td class=n>86.9</td><td class=n>90.0</td><td class=n>89.7</td><td class=n>83.9</td></tr>
+</table>
+<h3>Is the difference real? Paired bootstrap tests</h3>
+<table><tr><th>A</th><th>B</th><th class=n>mean ΔF1 (A−B)</th><th class=n>95% CI of Δ</th><th class=n>P(A not better)</th></tr>
+<tr><td>XLM-R base punct. model + domain FT</td><td>XLM-R base punct. model (zero-shot)</td><td class=n>+3.6</td><td class=n>+2.6 … +4.5</td><td class=n>0.000</td></tr>
+<tr><td>DistilBERT + domain FT</td><td>XLM-R base punct. model (zero-shot)</td><td class=n>-5.3</td><td class=n>-7.0 … -3.7</td><td class=n>1.000</td></tr>
+<tr><td>DistilBERT + domain FT</td><td>XLM-R large FullStop (zero-shot)</td><td class=n>-7.4</td><td class=n>-8.9 … -5.7</td><td class=n>1.000</td></tr>
+<tr><td>XLM-R base punct. model + domain FT</td><td>XLM-R large FullStop (zero-shot)</td><td class=n>+1.6</td><td class=n>+0.3 … +2.9</td><td class=n>0.004</td></tr>
+<tr><td>DistilBERT FT + GPT-2 rescoring (domain)</td><td>DistilBERT + domain FT</td><td class=n>+4.7</td><td class=n>+3.7 … +5.7</td><td class=n>0.000</td></tr>
+<tr><td>DistilBERT FT + GPT-2 rescoring (generic)</td><td>DistilBERT + domain FT</td><td class=n>+2.9</td><td class=n>+1.9 … +4.0</td><td class=n>0.000</td></tr>
+<tr><td>XLM-R base FT + GPT-2 rescoring (domain)</td><td>XLM-R base punct. model + domain FT</td><td class=n>+1.4</td><td class=n>+0.9 … +2.0</td><td class=n>0.000</td></tr>
+<tr><td>DistilBERT FT + GPT-2 rescoring (domain)</td><td>DistilBERT FT + GPT-2 rescoring (generic)</td><td class=n>+1.8</td><td class=n>+1.2 … +2.5</td><td class=n>0.000</td></tr>
+<tr><td>XLM-R base FT + GPT-2 rescoring (domain)</td><td>XLM-R base punct. model (zero-shot)</td><td class=n>+5.0</td><td class=n>+4.1 … +5.9</td><td class=n>0.000</td></tr>
+<tr><td>XLM-R base FT + GPT-2 rescoring (domain)</td><td>XLM-R large FullStop (zero-shot)</td><td class=n>+3.0</td><td class=n>+1.8 … +4.2</td><td class=n>0.000</td></tr>
+<tr><td>XLM-R base FT + GPT-2 rescoring (domain)</td><td>XLM-R base FT + GPT-2 rescoring (generic)</td><td class=n>+0.8</td><td class=n>+0.4 … +1.4</td><td class=n>0.000</td></tr>
+<tr><td>XLM-R large FullStop (zero-shot)</td><td>XLM-R base punct. model (zero-shot)</td><td class=n>+2.0</td><td class=n>+1.0 … +3.1</td><td class=n>0.001</td></tr>
+</table>
+<h3>External language model</h3>
+<table><tr><th>tagger</th><th>external LM</th><th class=n>val perplexity</th><th class=n>best λ</th><th class=n>best β</th><th class=n>val F1 tagger → rescored</th><th class=n>test F1 tagger → rescored</th></tr>
+<tr><td>DistilBERT + domain FT</td><td>generic distilgpt2</td><td class=n>44.4</td><td class=n>3.0</td><td class=n>1.5</td><td class=n>68.7 → 72.4</td><td class=n>70.0 → 73.0</td></tr>
+<tr><td>DistilBERT + domain FT</td><td>domain distilgpt2</td><td class=n>29.9</td><td class=n>8.0</td><td class=n>6.0</td><td class=n>68.7 → 73.0</td><td class=n>70.0 → 74.8</td></tr>
+<tr><td>XLM-R base punct. model + domain FT</td><td>generic distilgpt2</td><td class=n>44.4</td><td class=n>0.2</td><td class=n>0.5</td><td class=n>79.1 → 79.3</td><td class=n>78.9 → 79.5</td></tr>
+<tr><td>XLM-R base punct. model + domain FT</td><td>domain distilgpt2</td><td class=n>29.9</td><td class=n>0.5</td><td class=n>0.5</td><td class=n>79.1 → 79.7</td><td class=n>78.9 → 80.4</td></tr>
+</table>
+<figure><img src="../results/figures/res_lm_grid_distilbert_finetuned.png" alt="res_lm_grid_distilbert_finetuned"><figcaption>Figure 17 – Validation micro-F1 over the λ/β grid (DistilBERT tagger).</figcaption></figure>
+<figure><img src="../results/figures/res_lm_grid_punctall_finetuned.png" alt="res_lm_grid_punctall_finetuned"><figcaption>Figure 18 – Validation micro-F1 over the λ/β grid (XLM-R fine-tuned tagger).</figcaption></figure>
+<!--/RESULTS-->
+
+<!-- ================================================================ 14 -->
+<h2 id="s14">14. Test-result analysis (EDA on predictions)</h2>
+<!--TESTEDA-->
+<p>The assignment asks for EDA on the test results as well. The figures below compare the best zero-shot system (FullStop
+large) with the best fine-tuned system (XLM-R base + domain fine-tuning + domain GPT-2).</p>
+<ul>
+<li><b>Confusion matrices:</b> the single biggest error is a <b>missed comma</b> (≈22% of reference commas predicted as O by both
+systems) – many commas are optional. Next come COMMA → PERIOD (10%: the system splits a long sentence where the writer used a
+comma) and QUESTION → PERIOD (9–10%: the question is recognised as a sentence end but not as a question). The fine-tuned system
+inserts fewer false commas (291 vs 404 O → COMMA) and finds more periods (90% vs 88%).</li>
+<li><b>Error types:</b> fine-tuning mainly removes <i>insertions</i> (the zero-shot models punctuate more often than counsellors do:
+581 → 342 for the base model); the external LM mainly removes <i>deletions</i> (476 → 392).</li>
+<li><b>Sentence length:</b> both systems are best on short and medium sentences (≈0.83 micro-F1 up to 20 words) and degrade on
+long ones (≈0.65 for 46+ words), where many optional comma positions exist. The fine-tuned system is ahead everywhere except the
+longest bucket, where the two are equal within noise (few sentences).</li>
+<li><b>Missed words:</b> commas are most often missed after <i>you</i>, <i>so</i>, <i>and</i>, <i>relationship</i> – positions where
+a comma is optional. Missed periods are spread thinly over common sentence-final words (<i>him</i>, <i>you</i>, <i>them</i>, <i>do</i>), i.e. two
+short sentences merged into one.
+Missed questions are spread over many different words: each is a single rare (often rhetorical) question.</li>
+<li><b>Examples:</b> in most responses the fine-tuned output matches the reference exactly or differs only in optional commas
+(e.g. "work on building win win agreements with her, and follow through on them" – both versions are acceptable English).</li>
+</ul>
+
+<figure><img src="../results/figures/res_confusion.png" alt="res_confusion"><figcaption>Figure 19 – Row-normalised confusion matrices (reference rows, predicted columns).</figcaption></figure>
+<figure><img src="../results/figures/res_error_types.png" alt="res_error_types"><figcaption>Figure 20 – Insertions (extra mark), deletions (missed mark), substitutions (wrong mark).</figcaption></figure>
+<figure><img src="../results/figures/res_by_sentence_length.png" alt="res_by_sentence_length"><figcaption>Figure 21 – micro-F1 as a function of the reference sentence length.</figcaption></figure>
+<h3>Words where the best system most often missed the mark</h3>
+<table><tr><th>reference label</th><th>word (times missed)</th></tr><tr><td>COMMA</td><td>you (15), relationship (8), so (8), yourself (7), and (6), therapist (5), world (4), friend (4), time (4), problem (4)</td></tr><tr><td>PERIOD</td><td>him (3), you (3), them (3), do (3), it (3), first (2), life (2), not (2), that (2), health (2)</td></tr><tr><td>QUESTION</td><td>voices (1), story (1), disability (1), down (1), for (1), emotions (1), way (1), issue (1), yet (1), regard (1)</td></tr></table>
+<h3>Example outputs</h3>
+<p class=sub></p>
+<h4>Test response 60</h4><table><tr><th>INPUT</th><td>yes this emotional abuse there is no abuse without emotional abuse his abuse is demeaning and can have lasting negative impact on your perspective of your self and people around you please find someone support to talk to</td></tr><tr><th>REF</th><td>Yes, this emotional abuse. There is no abuse without emotional abuse. His abuse is demeaning and can have lasting negative impact on your perspective of your self and people around you. Please find someone support to talk to.</td></tr><tr><th>ZS</th><td>Yes, this emotional abuse. There is no abuse without emotional abuse. His abuse is demeaning and can have lasting negative impact on your perspective of your self and people around you. Please find someone support to talk to.</td></tr><tr><th>FT</th><td>Yes, this emotional abuse. There is no abuse without emotional abuse. His abuse is demeaning and can have lasting negative impact on your perspective of your self and people around you. Please find someone support to talk to.</td></tr></table>
+<h4>Test response 190</h4><table><tr><th>INPUT</th><td>hard to say a whole lot without knowing more however if you focus your attention on her what she&#x27;s saying what she&#x27;s feeling instead of trying to make yourself heard and understood first that&#x27;s often a good step also work on building win win agreements with her and follow through on them those are the areas i see men fall short on most often hope that helps</td></tr><tr><th>REF</th><td>Hard to say a whole lot without knowing more. However, if you focus your attention on her, what she&#x27;s saying, what she&#x27;s feeling instead of trying to make yourself heard and understood first, that&#x27;s often a good step. Also, work on building win win agreements with her, and follow through on them. Those are the areas I see men fall short on most often. Hope that helps.</td></tr><tr><th>ZS</th><td>Hard to say a whole lot without knowing more. However, if you focus your attention on her, what she&#x27;s saying, what she&#x27;s feeling, instead of trying to make yourself heard and understood first, that&#x27;s often a good step. Also, work on building win win agreements with her and follow through on them. Those are the areas I see men fall short on most often. Hope that helps.</td></tr><tr><th>FT</th><td>Hard to say a whole lot without knowing more. However, if you focus your attention on her what she&#x27;s saying, what she&#x27;s feeling instead of trying to make yourself heard and understood first, that&#x27;s often a good step. Also, work on building win win agreements with her and follow through on them. Those are the areas I see men fall short on most often. Hope that helps.</td></tr></table>
+<h4>Test response 155</h4><table><tr><th>INPUT</th><td>this interaction with your boss seems strange it is tricky to know how to handle workplace conflicts but there are typically resources in place to help employees and mangers communicate successful and feel confident that they are being treated fairly at work is there an hr department that you can use as a mediator</td></tr><tr><th>REF</th><td>This interaction with your boss seems strange. It is tricky to know how to handle workplace conflicts, but there are typically resources in place to help employees and mangers communicate successful and feel confident that they are being treated fairly at work. Is there an hr department that you can use as a mediator?</td></tr><tr><th>ZS</th><td>This interaction with your boss seems strange. It is tricky to know how to handle workplace conflicts, but there are typically resources in place to help employees and mangers communicate successful and feel confident that they are being treated fairly at work. Is there an hr department that you can use as a mediator?</td></tr><tr><th>FT</th><td>This interaction with your boss seems strange. It is tricky to know how to handle workplace conflicts, but there are typically resources in place to help employees and mangers communicate successful and feel confident that they are being treated fairly at work. Is there an hr department that you can use as a mediator?</td></tr></table>
+<h4>Test response 187</h4><table><tr><th>INPUT</th><td>i would first suggest you sitting down with him and voicing your concerns about how distant he has been or more importantly you have felt that he is this will give clarification to the situation as we need to remember that everyone&#x27;s perception can be different remember that relationships take work and take communication</td></tr><tr><th>REF</th><td>I would first suggest you sitting down with him and voicing your concerns about how distant he has been, or more importantly you have felt that he is. This will give clarification to the situation as we need to remember that everyone&#x27;s perception can be different. Remember that relationships take work and take communication.</td></tr><tr><th>ZS</th><td>I would first suggest you sitting down with him and voicing your concerns about how distant he has been or, more importantly, you have felt that he is. This will give clarification to the situation, as we need to remember that everyone&#x27;s perception can be different. Remember that relationships take work and take communication.</td></tr><tr><th>FT</th><td>I would first suggest you sitting down with him and voicing your concerns about how distant he has been or, more importantly, you have felt that he is. This will give clarification to the situation, as we need to remember that everyone&#x27;s perception can be different. Remember that relationships take work and take communication.</td></tr></table>
+<h4>Test response 41</h4><table><tr><th>INPUT</th><td>the greatest sex experience will be with someone who you feel connected to outside the bed this is something that you should feel comfortable in talking with your partner about the relationship needs to be strong before moving to the bed anyways if the love is there he will understand your fears and make you feel comfortable making it a great experience</td></tr><tr><th>REF</th><td>The greatest sex experience will be with someone who you feel connected to outside the bed. This is something that you should feel comfortable in talking with your partner about. The relationship needs to be strong before moving to the bed anyways. If the love is there, he will understand your fears and make you feel comfortable making it a great experience.</td></tr><tr><th>ZS</th><td>The greatest sex experience will be with someone who you feel connected to outside the bed. This is something that you should feel comfortable in talking with your partner about. The relationship needs to be strong before moving to the bed. Anyways, if the love is there, he will understand your fears and make you feel comfortable, making it a great experience.</td></tr><tr><th>FT</th><td>The greatest sex experience will be with someone who you feel connected to outside the bed. This is something that you should feel comfortable in talking with your partner about. The relationship needs to be strong before moving to the bed anyways. If the love is there, he will understand your fears and make you feel comfortable, making it a great experience.</td></tr></table>
+<h4>Test response 17</h4><table><tr><th>INPUT</th><td>strengthen your own belief in your right to a decent life and respect of who you are from the brief description you write your husband has very limited capacity to recognize how others feel and even less capacity to empathize with the person the best you can do is convince yourself of your own worth and associate with others who believe similarly about your qualities</td></tr><tr><th>REF</th><td>Strengthen your own belief in your right to a decent life and respect of who you are. From the brief description you write, your husband has very limited capacity to recognize how others feel and even less capacity to empathize with the person. The best you can do is convince yourself of your own worth and associate with others who believe similarly about your qualities.</td></tr><tr><th>ZS</th><td>Strengthen your own belief in your right to a decent life and respect of who you are. From the brief description you write, your husband has very limited capacity to recognize how others feel and even less capacity to empathize with the person. The best you can do is convince yourself of your own worth and associate with others who believe similarly about your qualities.</td></tr><tr><th>FT</th><td>Strengthen your own belief in your right to a decent life and respect of who you are. From the brief description you write, your husband has very limited capacity to recognize how others feel and even less capacity to empathize with the person. The best you can do is convince yourself of your own worth and associate with others who believe similarly about your qualities.</td></tr></table>
+<h4>Test response 115</h4><table><tr><th>INPUT</th><td>orbetter yet is it you still thinking about the other girl i am sure his cheating hurt you emotionally and may have affected your sexual performance as well make sure the other girl is out the picture on your end as well sounds like something the both of you need to have a calm and adult conversation about</td></tr><tr><th>REF</th><td>Orbetter yet. Is it you still thinking about the other girl? I am sure his cheating hurt you emotionally and may have affected your sexual performance as well. Make sure the other girl is out the picture on your end as well. Sounds like something the both of you need to have a calm and adult conversation about.</td></tr><tr><th>ZS</th><td>Orbetter, yet is it you still thinking about the other girl? I am sure his cheating hurt you emotionally and may have affected your sexual performance as well. Make sure the other girl is out the picture on your end as well. Sounds like something the both of you need to have a calm and adult conversation about.</td></tr><tr><th>FT</th><td>Orbetter yet, is it you still thinking about the other girl? I am sure his cheating hurt you emotionally and may have affected your sexual performance as well. Make sure the other girl is out. The picture on your end as well sounds like something the both of you need to have a calm and adult conversation about.</td></tr></table>
+<h4>Test response 110</h4><table><tr><th>INPUT</th><td>part of handling stress is making sure that your perception of the stress is accurate sometimes stress can seem more than it really is one thing that i encourage my clients to do is to ask themselves what is this stressor really about simplifying stress is a key to minimizing stress and leads to feeling less stressed out</td></tr><tr><th>REF</th><td>Part of handling stress is making sure that your perception of the stress is accurate. Sometimes stress can seem more than it really is. One thing that I encourage my clients to do is to ask themselves, what is this stressor really about? Simplifying stress is a key to minimizing stress and leads to feeling less stressed out.</td></tr><tr><th>ZS</th><td>Part of handling stress is making sure that your perception of the stress is accurate. Sometimes, stress can seem more than it really is. One thing that I encourage my clients to do is to ask themselves, what is this stressor really about? Simplifying stress is a key to minimizing stress and leads to feeling less stressed out.</td></tr><tr><th>FT</th><td>Part of handling stress is making sure that your perception of the stress is accurate. Sometimes stress can seem more than it really is. One thing that I encourage my clients to do is to ask themselves, what is this stressor really about? Simplifying stress is a key to minimizing stress and leads to feeling less stressed out.</td></tr></table>
+<!--/TESTEDA-->
+
+<!-- ================================================================ 15 -->
+<h2 id="s15">15. Challenges and how they were solved</h2>
+<table>
+<tr><th>#</th><th>challenge</th><th>solution</th></tr>
+<tr><td>1</td><td>3,710 "glued" sentences (<code>with.Seriously</code>) – a missing space would silently delete a period label.</td><td>Regex that inserts a space between a sentence-ending mark and a following capital letter (case-sensitive, before lower-casing).</td></tr>
+<tr><td>2</td><td>Encoding noise: 9,412 non-breaking spaces, curly quotes, bullets, ellipses.</td><td>Unicode NFKC + explicit character map; bullets/line breaks become sentence ends.</td></tr>
+<tr><td>3</td><td>URLs, e-mails, base64 images, emoticons <code>:)</code> – their dots/colons create fake punctuation.</td><td>Removed with regexes before labelling.</td></tr>
+<tr><td>4</td><td>60 Spanish responses.</td><td>Language filter (non-ASCII ratio + Spanish stop-word ratio).</td></tr>
+<tr><td>5</td><td>Duplicates (760 rows; 438 more after cleaning) – would leak test answers into training.</td><td>De-duplicate on the cleaned word sequence, then split by response.</td></tr>
+<tr><td>6</td><td>Abbreviations (<code>e.g.</code>, <code>Dr.</code>) look like sentence ends.</td><td>Abbreviation list – their dot is not a PERIOD label.</td></tr>
+<tr><td>7</td><td>Words split into several sub-words.</td><td>Label only the first sub-word; others −100 (ignored).</td></tr>
+<tr><td>8</td><td>Responses longer than the model window; window edges hurt accuracy.</td><td>Overlapping windows; each word takes the prediction with the most context.</td></tr>
+<tr><td>9</td><td>"Last word is always a period" shortcut.</td><td>Random-length windows cut across response boundaries.</td></tr>
+<tr><td>10</td><td>Different label sets in public models (<code>0 . , ? - :</code>).</td><td>Generic label folding (sum probabilities); for fine-tuning, map our labels onto the model's own head instead of replacing it.</td></tr>
+<tr><td>11</td><td>Strong class imbalance (90% O).</td><td>Per-class/micro/macro F1 + SER instead of accuracy; β bonus tuned on validation.</td></tr>
+<tr><td>12</td><td>No GPU locally; a network proxy limited downloads to ~150 KB/s per connection.</td><td>DistilBERT (fast) for the generic-LM experiment, only 1 epoch for XLM-R, no fine-tuning of the 560 M FullStop model; parallel range downloader (<code>scripts/00_download_models.py</code>); every expensive step caches its output; the notebook runs on Colab GPU unchanged.</td></tr>
+<tr><td>13</td><td>Fair λ/β tuning without touching test data.</td><td>Grid search on validation only; test evaluated once. The first grid (λ ≤ 1) put the best DistilBERT setting on its edge, so the grid was widened (finally λ ≤ 8, β ≤ 13; DistilBERT kept preferring a strong LM) and re-run (still on validation only).</td></tr>
+<tr><td>14</td><td><b>Found in error analysis:</b> fine-tuned models left the last word of ≈60% of validation responses unpunctuated (zero-shot models: 0%). Cause: random training windows taught "a window end is usually not a sentence end".</td><td>End-of-input decoding constraint (§8), validated on the validation set (+2.2 micro-F1 for the fine-tuned taggers, no effect on zero-shot models) and applied to all systems. Table <code>results/tables/end_constraint_effect.csv</code> reports every system with and without it. Training-side fix for future work: add windows that end at real text ends.</td></tr>
+</table>
+
+<!-- ================================================================ 16 -->
+<h2 id="s16">16. Why each choice was made</h2>
+<ul>
+<li><b>Token classification instead of seq2seq (T5/LLM rewriting):</b> the words must not change (an ASR transcript must stay
+verbatim, especially in clinical use), it is 10–100× faster, every decision is a calibrated probability, and it is the
+state-of-the-art formulation for this task. A generative model can hallucinate or drop words.</li>
+<li><b>4 classes:</b> standard in the literature; <code>!</code>, <code>;</code>, <code>:</code> are too rare to learn reliably from ~1.6k answers.</li>
+<li><b>Encoder (bidirectional) for tagging, decoder (GPT-2) for rescoring:</b> each is used where it is strongest – the encoder sees
+right context, the decoder scores fluency of complete hypotheses.</li>
+<li><b>DistilBERT:</b> uncased (matches ASR output), small enough to train on CPU and deploy with low latency.</li>
+<li><b>Split by response with a separate test set:</b> prevents leakage and keeps the final numbers honest.</li>
+<li><b>Two pre-trained baselines of different size:</b> shows the result is not an artefact of one weak baseline.</li>
+<li><b>Bootstrap significance:</b> 199 test responses is a modest sample; differences must be shown to be real, not noise.</li>
+</ul>
+
+<!-- ================================================================ 17 -->
+<h2 id="s17">17. Limitations and future work</h2>
+<ul>
+<li><b>Clean written text ≠ speech.</b> Real ASR output contains recognition errors, fillers ("um"), disfluencies and spoken
+numbers. Next step: train on ASR-noised text (simulate errors or run TTS→ASR) and use <b>prosody</b> (pauses, pitch) from
+the audio – pauses are the strongest cue for commas/periods.</li>
+<li><b>Casing</b> is not restored; add a joint truecasing head (multi-task: punctuation + capitalisation).</li>
+<li><b>More classes</b> (exclamation, colon, quotes) need more data – could use a larger synthetic corpus from public
+counselling/medical text.</li>
+<li><b>Streaming:</b> a production dictation system must punctuate in real time with limited look-ahead; train with
+right-truncated windows and measure latency.</li>
+<li><b>Deployment:</b> distil/quantise the tagger (ONNX, int8) for on-device use; the external LM can be replaced with a
+small n-gram (KenLM) model for speed.</li>
+<li><b>Domain-adaptive pre-training</b> (continue masked-LM training of the encoder on in-domain text before fine-tuning) is
+another way to use an internal LM; worth trying with a larger unlabelled clinical corpus.</li>
+<li>Single random seed per configuration on CPU; with a GPU, report mean ± std over several seeds.</li>
+<li><b>Fine-tune the large model.</b> The 560 M FullStop model is the strongest zero-shot system; fine-tuning it on the
+domain (impossible on this CPU in the time available, ~30 min on a Colab GPU) is the obvious next experiment.
+More XLM-R epochs (only 1 was affordable) would likely help too.</li>
+<li><b>Training windows that end at the real end of a text</b>, so the end-of-input constraint is no longer needed.</li>
+<li>Responses contain signatures (e.g. a credential line ending in "NCC") that behave like headings; better cleaning could remove them.</li>
+</ul>
+
+<!-- ================================================================ 18 -->
+<h2 id="s18">18. Code map and how to run</h2>
+<table>
+<tr><th>file</th><th>what it does</th></tr>
+<tr><td><code>src/punct/labels.py</code></td><td>label set, character→label folding, <code>render()</code> words+labels → text</td></tr>
+<tr><td><code>src/punct/data.py</code></td><td>cleaning, language filter, word/label extraction, split, synthetic windows</td></tr>
+<tr><td><code>src/punct/tagger.py</code></td><td><code>Tagger</code>: load any HF token-classification model, label folding, sub-word alignment, training loop, sliding-window inference</td></tr>
+<tr><td><code>src/punct/lm_rescore.py</code></td><td><code>ExternalLM</code> (GPT-2 fine-tuning, perplexity, scoring), N-best beam, rescoring cache, decoding</td></tr>
+<tr><td><code>src/punct/metrics.py</code></td><td>confusion matrix, per-class P/R/F1, micro/macro F1, SER</td></tr>
+<tr><td><code>scripts/01_build_dataset.py</code> … <code>05_evaluate_report.py</code></td><td>pipeline steps (dataset → EDA → taggers → external LM → evaluation)</td></tr>
+<tr><td><code>scripts/predict.py</code></td><td>punctuate any text from the command line</td></tr>
+<tr><td><code>notebooks/Punctuation_Restoration.ipynb</code></td><td>self-contained Colab notebook (embeds all code, runs every step, shows all outputs)</td></tr>
+</table>
+<pre># local (CPU or GPU)
+python scripts/01_build_dataset.py
+python scripts/02_eda.py
+python scripts/03_run_tagger.py --tag punctall_zeroshot --model kredor/punctuate-all
+python scripts/03_run_tagger.py --tag fullstop_zeroshot --model oliverguhr/fullstop-punctuation-multilang-large
+python scripts/03_run_tagger.py --tag distilbert_finetuned --model distilbert-base-uncased --train --epochs 3 --lr 5e-5
+python scripts/03_run_tagger.py --tag punctall_finetuned --model kredor/punctuate-all --train --epochs 1 --lr 2e-5
+python scripts/04_external_lm.py --tagger distilbert_finetuned
+python scripts/05_evaluate_report.py
+python scripts/predict.py "have you talked to anyone about it"</pre>
+
+<!-- ================================================================ 19 -->
+<h2 id="s19">19. Interview questions and answers</h2>
+<dl class="qa">
+<dt>Q. Why did you frame punctuation restoration as token classification?</dt>
+<dd>Because the words are fixed – only the gaps change. Labelling each word with "the mark after it" gives one
+classification per word, is fast, cannot alter or hallucinate words (important for clinical transcripts), and gives
+probabilities that can be combined with other models such as an external LM.</dd>
+<dt>Q. What exactly is "internal" and "external" LM in your system?</dt>
+<dd>Internal: the pre-trained transformer encoder inside the tagger – its pre-training (masked LM) is what gives it
+knowledge of English. External: a separate GPT-2 that scores complete punctuated hypotheses; its score is combined
+log-linearly with the tagger score (N-best rescoring, like LM fusion in ASR).</dd>
+<dt>Q. How did you create a dataset without manual labels?</dt>
+<dd>Self-supervision: the psychologists' responses are already punctuated. After cleaning, I remove punctuation to
+create the input and use the removed marks as labels. Training windows are random cuts of the concatenated
+responses, so sentence boundaries appear anywhere in a window.</dd>
+<dt>Q. How do you handle words that the tokenizer splits into several pieces?</dt>
+<dd>Only the first sub-token carries the label; the rest get −100 so the loss ignores them. At inference I read the
+prediction at the first sub-token of every word.</dd>
+<dt>Q. Why not accuracy?</dt>
+<dd>90% of words have no punctuation; predicting "O" everywhere gives 90% accuracy and is useless. Per-class F1,
+micro/macro-F1 over the punctuation classes and slot error rate measure what matters.</dd>
+<dt>Q. Why is QUESTION the hardest class?</dt>
+<dd>It is rare (0.45% of words, ~1.2k training examples), and the cue (what/do/are…) is at the start of the sentence
+while the label is at the end. Many counselling questions are also rhetorical or embedded ("I wonder if you have…").</dd>
+<dt>Q. Why is COMMA harder than PERIOD?</dt>
+<dd>Commas are partly optional and stylistic – two good writers disagree on many commas – so even the reference is
+"noisy". Sentence ends are more constrained by grammar.</dd>
+<dt>Q. How did you make sure the test score is trustworthy?</dt>
+<dd>De-duplication after cleaning, split by response, a test set used only once, hyper-parameters (epochs, λ, β) chosen on
+validation, and bootstrap confidence intervals plus paired bootstrap tests.</dd>
+<dt>Q. How would you adapt this for Augnito's medical dictation?</dt>
+<dd>Train on in-domain medical text with ASR-style noise (numbers spoken as words, fillers, recognition errors), add
+acoustic/prosodic features (pause length is a strong period/comma cue), add a casing head, use streaming windows with
+limited look-ahead, and distil/quantise for latency. Section-specific punctuation (lists in prescriptions, colons in
+headings like "Impression:") would need extra classes.</dd>
+<dt>Q. What does λ = 0 mean in the rescoring?</dt>
+<dd>The LM is ignored, so the result equals the tagger alone. Including λ = 0 in the validation grid guarantees the
+rescorer is never worse than the tagger on validation.</dd>
+<dt>Q. What is the role of β?</dt>
+<dd>A language model assigns lower probability to longer texts, and every punctuation mark is an extra token, so an LM
+alone prefers fewer marks. β is a per-mark bonus that cancels this length bias – the same idea as the word-insertion
+penalty in speech recognition.</dd>
+<dt>Q. What would you try with more time / a GPU?</dt>
+<dd>Larger encoders (DeBERTa-v3, RoBERTa-large), several seeds, domain-adaptive MLM pre-training, joint casing, a CRF
+layer or LM-fused beam search directly over the tagger lattice, and noisy ASR training data.</dd>
+<dt>Q. Your fine-tuned DistilBERT is worse than a zero-shot model. Doesn't that mean fine-tuning failed?</dt>
+<dd>No – it shows that <b>task pre-training matters more than domain data at this data size</b>. The zero-shot XLM-R model
+was already trained on millions of punctuated sentences; DistilBERT had to learn punctuation from only ~265 k words.
+The fair test of fine-tuning compares the <i>same</i> model before and after: the XLM-R punctuation model improves
+significantly after domain fine-tuning (see §13). The practical recipe is: start from a model that already knows the
+task, then adapt it to the domain.</dd>
+<dt>Q. What was the most surprising thing you found?</dt>
+<dd>That the fine-tuned models often left the <b>last word of a response unpunctuated</b>. My training windows were cut at
+random positions, so the model learned "the end of a window is usually not the end of a sentence" – but at inference the
+end of the input <i>is</i> a sentence end. I found it in error analysis, confirmed it on validation (≈60% of fine-tuned
+outputs, 0% of zero-shot outputs), and fixed it with an end-of-input decoding constraint applied to all systems. The
+better long-term fix is to include windows that end at real text ends during training.</dd>
+<dt>Q. Why did the external LM help DistilBERT much more than XLM-R?</dt>
+<dd>A weaker tagger leaves more correctable mistakes, and its N-best lists contain the right answer more often below rank 1.
+A strong tagger is already confident, so the LM mostly confirms its choice – diminishing returns, but still a significant gain.</dd>
+<dt>Q. Is 199 test responses enough?</dt>
+<dd>It is ~36 k words and ~3.4 k punctuation marks, enough for 1–2 point CIs on micro-F1. Small differences (&lt;1 point) between
+the strongest systems are not significant, which is why I report bootstrap CIs and paired tests instead of single numbers.</dd>
+</dl>
+
+<!-- ================================================================ 20 -->
+<h2 id="s20">20. Glossary</h2>
+<table>
+<tr><td><b>ASR</b></td><td>automatic speech recognition – speech → text</td></tr>
+<tr><td><b>token classification</b></td><td>predicting one label for every token/word of a sequence</td></tr>
+<tr><td><b>sub-word / WordPiece / SentencePiece</b></td><td>splitting rare words into frequent pieces so the vocabulary stays small</td></tr>
+<tr><td><b>pre-training / fine-tuning</b></td><td>learn general language on huge text, then adapt to a small labelled task</td></tr>
+<tr><td><b>zero-shot</b></td><td>applying a model to a new domain with no training on it</td></tr>
+<tr><td><b>perplexity</b></td><td>exp(average negative log-likelihood per token); how "surprised" an LM is – lower is better</td></tr>
+<tr><td><b>N-best / beam search</b></td><td>keep the K highest-scoring partial label sequences while moving left to right</td></tr>
+<tr><td><b>rescoring / LM fusion</b></td><td>re-ranking candidate outputs with a second model's score</td></tr>
+<tr><td><b>micro / macro F1</b></td><td>F1 from pooled counts / average of per-class F1</td></tr>
+<tr><td><b>SER</b></td><td>slot error rate: (S+D+I)/N reference marks</td></tr>
+<tr><td><b>bootstrap CI</b></td><td>re-sample the test set with replacement to estimate the variability of a metric</td></tr>
+<tr><td><b>leakage</b></td><td>information from the test set reaching training, inflating scores</td></tr>
+</table>
+
+</main>
+</body>
+</html>

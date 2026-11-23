@@ -1,0 +1,39 @@
+== distilbert_finetuned: distilbert-base-uncased  train=True  device=cpu
+native labels: {0: 'O', 1: 'COMMA', 2: 'PERIOD', 3: 'QUESTION'}  ->  fold [0, 1, 2, 3]
+parameters: 66.4 M
+  step 50/1668  loss 0.8518  2.80s/step
+  step 100/1668  loss 0.2843  2.88s/step
+  step 150/1668  loss 0.2167  2.94s/step
+  step 200/1668  loss 0.1953  3.01s/step
+  step 250/1668  loss 0.1822  3.00s/step
+  step 300/1668  loss 0.1736  3.01s/step
+  step 350/1668  loss 0.1704  3.01s/step
+  step 400/1668  loss 0.1589  3.03s/step
+  step 450/1668  loss 0.1551  3.05s/step
+  step 500/1668  loss 0.1536  3.06s/step
+  step 550/1668  loss 0.1491  3.10s/step
+  step 600/1668  loss 0.1103  3.08s/step
+  step 650/1668  loss 0.1166  3.07s/step
+  step 700/1668  loss 0.1188  3.05s/step
+  step 750/1668  loss 0.1147  3.04s/step
+  step 800/1668  loss 0.1185  3.03s/step
+  step 850/1668  loss 0.1148  3.02s/step
+  step 900/1668  loss 0.1141  3.01s/step
+  step 950/1668  loss 0.1158  3.01s/step
+  step 1000/1668  loss 0.1117  3.00s/step
+  step 1050/1668  loss 0.1105  3.00s/step
+  step 1100/1668  loss 0.1089  2.99s/step
+  step 1150/1668  loss 0.0628  2.98s/step
+  step 1200/1668  loss 0.0843  3.02s/step
+  step 1250/1668  loss 0.0857  3.01s/step
+  step 1300/1668  loss 0.0778  2.98s/step
+  step 1350/1668  loss 0.0786  2.95s/step
+  step 1400/1668  loss 0.0852  2.93s/step
+  step 1450/1668  loss 0.0822  2.91s/step
+  step 1500/1668  loss 0.0806  2.89s/step
+  step 1550/1668  loss 0.0807  2.88s/step
+  step 1600/1668  loss 0.0817  2.88s/step
+  step 1650/1668  loss 0.0803  2.87s/step
+val: micro-F1 0.6634  COMMA 0.560  PERIOD 0.733  QUESTION 0.699  SER 0.516  (32s)
+test: micro-F1 0.6720  COMMA 0.572  PERIOD 0.744  QUESTION 0.704  SER 0.496  (29s)
+done

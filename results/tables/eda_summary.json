@@ -1,0 +1,402 @@
+{
+  "raw_columns": [
+    "Context",
+    "Response"
+  ],
+  "raw_rows": 3512,
+  "raw_missing": {
+    "Context": 0,
+    "Response": 4
+  },
+  "contexts_unique": 995,
+  "responses_unique": 2479,
+  "responses_per_context": {
+    "count": 995.0,
+    "mean": 2.76,
+    "std": 3.58,
+    "min": 1.0,
+    "25%": 1.0,
+    "50%": 2.0,
+    "75%": 3.0,
+    "max": 47.0
+  },
+  "label_counts": {
+    "train": {
+      "O": 239434,
+      "COMMA": 11108,
+      "PERIOD": 13956,
+      "QUESTION": 1192
+    },
+    "val": {
+      "O": 32488,
+      "PERIOD": 1942,
+      "COMMA": 1398,
+      "QUESTION": 196
+    },
+    "test": {
+      "O": 30851,
+      "PERIOD": 1792,
+      "COMMA": 1443,
+      "QUESTION": 155
+    }
+  },
+  "label_share_train": {
+    "O": 0.9011780646618239,
+    "COMMA": 0.04180812224773232,
+    "PERIOD": 0.052527381534871465,
+    "QUESTION": 0.004486431555572283
+  },
+  "punct_share_per_split_pct": {
+    "train": {
+      "COMMA": 4.18,
+      "PERIOD": 5.25,
+      "QUESTION": 0.45
+    },
+    "val": {
+      "COMMA": 3.88,
+      "PERIOD": 5.39,
+      "QUESTION": 0.54
+    },
+    "test": {
+      "COMMA": 4.21,
+      "PERIOD": 5.23,
+      "QUESTION": 0.45
+    }
+  },
+  "words_per_response": {
+    "count": 1582.0,
+    "mean": 167.9,
+    "std": 112.5,
+    "min": 6.0,
+    "25%": 91.0,
+    "50%": 141.0,
+    "75%": 213.0,
+    "max": 946.0
+  },
+  "words_per_sentence": {
+    "count": 15148.0,
+    "mean": 17.5,
+    "std": 11.7,
+    "min": 1.0,
+    "25%": 10.0,
+    "50%": 15.0,
+    "75%": 23.0,
+    "max": 289.0
+  },
+  "commas_per_sentence_mean": 0.7332981251650383,
+  "vocab_size_train": 9133,
+  "top_word_before": {
+    "COMMA": [
+      [
+        "you",
+        341
+      ],
+      [
+        "also",
+        108
+      ],
+      [
+        "it",
+        108
+      ],
+      [
+        "example",
+        102
+      ],
+      [
+        "relationship",
+        101
+      ],
+      [
+        "yourself",
+        99
+      ],
+      [
+        "however",
+        98
+      ],
+      [
+        "life",
+        93
+      ],
+      [
+        "that",
+        90
+      ],
+      [
+        "time",
+        88
+      ]
+    ],
+    "PERIOD": [
+      [
+        "you",
+        642
+      ],
+      [
+        "it",
+        253
+      ],
+      [
+        "relationship",
+        205
+      ],
+      [
+        "life",
+        178
+      ],
+      [
+        "yourself",
+        168
+      ],
+      [
+        "them",
+        145
+      ],
+      [
+        "time",
+        125
+      ],
+      [
+        "well",
+        122
+      ],
+      [
+        "this",
+        120
+      ],
+      [
+        "him",
+        99
+      ]
+    ],
+    "QUESTION": [
+      [
+        "you",
+        85
+      ],
+      [
+        "him",
+        25
+      ],
+      [
+        "it",
+        23
+      ],
+      [
+        "relationship",
+        19
+      ],
+      [
+        "right",
+        18
+      ],
+      [
+        "life",
+        17
+      ],
+      [
+        "her",
+        13
+      ],
+      [
+        "that",
+        12
+      ],
+      [
+        "yourself",
+        11
+      ],
+      [
+        "them",
+        11
+      ]
+    ]
+  },
+  "top_word_after": {
+    "COMMA": [
+      [
+        "and",
+        1133
+      ],
+      [
+        "you",
+        571
+      ],
+      [
+        "but",
+        533
+      ],
+      [
+        "i",
+        395
+      ],
+      [
+        "it",
+        371
+      ],
+      [
+        "then",
+        322
+      ],
+      [
+        "or",
+        306
+      ],
+      [
+        "the",
+        283
+      ],
+      [
+        "if",
+        211
+      ],
+      [
+        "is",
+        156
+      ]
+    ],
+    "PERIOD": [
+      [
+        "i",
+        887
+      ],
+      [
+        "if",
+        815
+      ],
+      [
+        "you",
+        638
+      ],
+      [
+        "it",
+        532
+      ],
+      [
+        "the",
+        530
+      ],
+      [
+        "this",
+        352
+      ],
+      [
+        "there",
+        254
+      ],
+      [
+        "in",
+        253
+      ],
+      [
+        "it's",
+        198
+      ],
+      [
+        "a",
+        171
+      ]
+    ],
+    "QUESTION": [
+      [
+        "if",
+        108
+      ],
+      [
+        "what",
+        82
+      ],
+      [
+        "is",
+        51
+      ],
+      [
+        "do",
+        46
+      ],
+      [
+        "i",
+        44
+      ],
+      [
+        "are",
+        41
+      ],
+      [
+        "you",
+        37
+      ],
+      [
+        "it",
+        31
+      ],
+      [
+        "the",
+        30
+      ],
+      [
+        "this",
+        29
+      ]
+    ]
+  },
+  "question_first_word": [
+    [
+      "what",
+      158
+    ],
+    [
+      "is",
+      99
+    ],
+    [
+      "are",
+      97
+    ],
+    [
+      "do",
+      94
+    ],
+    [
+      "how",
+      57
+    ],
+    [
+      "have",
+      54
+    ],
+    [
+      "if",
+      44
+    ],
+    [
+      "can",
+      43
+    ],
+    [
+      "does",
+      39
+    ],
+    [
+      "i",
+      31
+    ],
+    [
+      "has",
+      19
+    ],
+    [
+      "did",
+      18
+    ]
+  ],
+  "raw_issues": {
+    "missing_space_after_sentence_end": 3710,
+    "non_breaking_spaces": 9412,
+    "urls": 295,
+    "curly_quotes_apostrophes": 725,
+    "responses_with_newlines": 70,
+    "spanish_responses": 60
+  }
+}

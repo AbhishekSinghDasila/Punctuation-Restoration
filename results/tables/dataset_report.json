@@ -1,0 +1,16 @@
+{
+  "raw_rows": 3512,
+  "missing_response": 4,
+  "duplicate_rows": 760,
+  "unique_responses": 2479,
+  "non_english": 60,
+  "too_short": 3,
+  "duplicates_after_cleaning": 438,
+  "final_responses": 1978,
+  "split_sizes": {
+    "train": 1582,
+    "val": 197,
+    "test": 199
+  },
+  "train_windows": 8884
+}

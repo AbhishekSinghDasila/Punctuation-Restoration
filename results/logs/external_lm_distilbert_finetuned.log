@@ -1,0 +1,16 @@
+perplexity on val (generic LM): 44.39
+perplexity on val (domain LM): 29.90
+tagger alone: val micro-F1 0.6634  test 0.6720
+[generic] n-best + LM scoring: 887s
+[generic] best on val: lambda=3.0 beta=6.0 val F1 0.7038 -> test micro-F1 0.7143  QUESTION 0.738
+[domain] n-best + LM scoring: 856s
+[domain] best on val: lambda=2.0 beta=4.0 val F1 0.7117 -> test micro-F1 0.7210  QUESTION 0.761
+done
+perplexity on val (generic LM): 44.39
+perplexity on val (domain LM): 29.90
+tagger alone (with end-of-input constraint): val micro-F1 0.6874  test 0.7004
+[generic] n-best + LM scoring: 0s
+[generic] best on val: lambda=3.0 beta=1.5 val F1 0.7238 -> test micro-F1 0.7297  QUESTION 0.732
+[domain] n-best + LM scoring: 0s
+[domain] best on val: lambda=8.0 beta=6.0 val F1 0.7300 -> test micro-F1 0.7478  QUESTION 0.768
+done
